@@ -1,0 +1,4 @@
+# Python Hows
+以第一人称视角思考、分析和理解 Python 的机理，包含大量个人见解和类比，读者自行斟酌，欢迎讨论。
+
+- [生成器](https://github.com/gndlwch2w/msvm-unet/blob/main/gen.md)
