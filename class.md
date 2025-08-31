@@ -529,6 +529,355 @@ static PyMethodDef tuple_methods[] = {
     {"count", (PyCFunction)tuple_count, METH_O, tuple_count__doc__},
 ```
 
+## 用户自定义类对象是如何被创建的？
+如下我们自定义了 Singer 类，在模块被导入或在 <stdin> 模式下完成 Singer 的输入后回车，Singer 实例被自动创建，其类型是 `type`，表明其可能与 `tuple` 一样，是一个 `PyTypeObject` 对象。
+```python
+class Singer(object):
+    def __init__(self, name='Xukun Cai'):
+        self.name = name
+    def sing(self):
+        return f'{self.name} sings: Only because you are so beautiful'
+
+>>> Singer
+<class '__main__.Singer'>
+>>> type(Singer)
+<class 'type'>
+>>> dir(Singer)
+['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'sing']
+```
+我们通过 `dis` 查看 `Singer` 类创建过程的字节码。观察我们发现，类是通过 `LOAD_BUILD_CLASS` 字节码创建并保存到 `Singer` 变量的，它的参数包含 `Singer` 类体的函数，类名 `'Singer'` 和父类 `object`。
+```text
+  2           0 LOAD_BUILD_CLASS
+              2 LOAD_CONST               0 (<code object Singer at 0x1050ecb30, file "<dis>", line 2>)
+              4 LOAD_CONST               1 ('Singer')
+              6 MAKE_FUNCTION            0
+              8 LOAD_CONST               1 ('Singer')
+             10 LOAD_NAME                0 (object)
+             12 CALL_FUNCTION            3
+             14 STORE_NAME               1 (Singer)
+             16 LOAD_CONST               2 (None)
+             18 RETURN_VALUE
+
+Disassembly of <code object Singer at 0x1050ecb30, file "<dis>", line 2>:
+  2           0 LOAD_NAME                0 (__name__)
+              2 STORE_NAME               1 (__module__)
+              4 LOAD_CONST               0 ('Singer')
+              6 STORE_NAME               2 (__qualname__)
+
+  3           8 LOAD_CONST               7 (('Xukun Cai',))
+             10 LOAD_CONST               2 (<code object __init__ at 0x1050ec920, file "<dis>", line 3>)
+             12 LOAD_CONST               3 ('Singer.__init__')
+             14 MAKE_FUNCTION            1 (defaults)
+             16 STORE_NAME               3 (__init__)
+
+  5          18 LOAD_CONST               4 (<code object sing at 0x1050eca80, file "<dis>", line 5>)
+             20 LOAD_CONST               5 ('Singer.sing')
+             22 MAKE_FUNCTION            0
+             24 STORE_NAME               4 (sing)
+             26 LOAD_CONST               6 (None)
+             28 RETURN_VALUE
+```
+观察 `Singer` 类体的函数，其大致可以对应为 `Singer()` 函数，作用是类成员初始化。
+```python
+def Singer():
+    __module__ = __name__
+    __qualname__ = 'Singer'
+    def __init__(self, name='Xukun Cai'):
+        self.name = name
+    __init__.__qualname__ = 'Singer.__init__'
+    def sing(self):
+        return f'{self.name} sings: Only because you are so beautiful'
+    sing.__qualname__ = 'Singer.sing'
+    return None
+```
+我们进一步分析 `LOAD_BUILD_CLASS` 的实现，可以看到，其功能是从 `builtins` 中找到 `__build_class__` 函数并压栈。
+```c
+/* ceval.c */
+PyObject* _Py_HOT_FUNCTION
+_PyEval_EvalFrameDefault(PyFrameObject *f, int throwflag)
+{
+    int opcode;
+main_loop:
+    for (;;) {
+        opcode = _Py_OPCODE(*next_instr);
+        switch (opcode) {
+            case TARGET(LOAD_BUILD_CLASS): {
+                _Py_IDENTIFIER(__build_class__);
+
+                PyObject *bc;
+                if (PyDict_CheckExact(f->f_builtins)) {
+                    bc = _PyDict_GetItemIdWithError(f->f_builtins, &PyId___build_class__);
+                    if (bc == NULL) {
+                        if (!_PyErr_Occurred(tstate)) {
+                            _PyErr_SetString(tstate, PyExc_NameError,
+                                            "__build_class__ not found");
+                        }
+                        goto error;
+                    }
+                    Py_INCREF(bc);
+                }
+                PUSH(bc);
+                DISPATCH();
+            }
+        }
+    }
+}
+```
+我们继续找到 `__build_class__` 的实现，其中参数 `self` 为 `__build_class__` 对象本身；`args` 为 frame 的值栈，代表的参数依次为 `Singer` 类体的函数、类名 `'Singer'` 和父类 `object`；`nargs` 为参数个数，`kwnames` 为额外的参数。
+```c
+/* Python/bltinmodule.c */
+static PyObject *
+builtin___build_class__(PyObject *self, PyObject *const *args, Py_ssize_t nargs,
+                        PyObject *kwnames)
+{
+    PyObject *func, *name, *winner, *prep;
+    PyObject *cls = NULL, *cell = NULL, *ns = NULL, *meta = NULL, *orig_bases = NULL;
+    PyObject *mkw = NULL, *bases = NULL;
+    int isclass = 0;   /* initialize to prevent gcc warning */
+
+    /* 类体函数 */
+    func = args[0];   /* Better be callable */
+    /* 类名 */
+    name = args[1];
+    /* 父类 tuple，若没有指定为 () */
+    orig_bases = _PyTuple_FromArray(args + 2, nargs - 2);
+    /* PEP 560 __mro_entries__ 协议，默认同 orig_bases */
+    bases = update_bases(orig_bases, args + 2, nargs - 2);
+
+    if (kwnames == NULL) {
+        meta = NULL;
+        mkw = NULL;
+    }
+    else {
+        mkw = _PyStack_AsDict(args + nargs, kwnames);
+        if (mkw == NULL) {
+            goto error;
+        }
+
+        /* 若指定了 metaclass */
+        meta = _PyDict_GetItemIdWithError(mkw, &PyId_metaclass);
+        if (meta != NULL) {
+            /* metaclass is explicitly given, check if it's indeed a class */
+            isclass = PyType_Check(meta);
+        }
+    }
+    /* 没有指定 metaclass */
+    if (meta == NULL) {
+        /* if there are no bases, use type: */
+        if (PyTuple_GET_SIZE(bases) == 0) {
+            meta = (PyObject *) (&PyType_Type);
+        }
+        /* else get the type of the first base */
+        else {
+            PyObject *base0 = PyTuple_GET_ITEM(bases, 0);
+            meta = (PyObject *) (base0->ob_type);
+        }
+        Py_INCREF(meta);
+        isclass = 1;  /* meta is really a class */
+    }
+
+    /* 若存在多个父类，找最顶层类作为 metaclass */
+    if (isclass) {
+        /* meta is really a class, so check for a more derived
+           metaclass, or possible metaclass conflicts: */
+        winner = (PyObject *)_PyType_CalculateMetaclass((PyTypeObject *)meta,
+                                                        bases);
+        if (winner != meta) {
+            Py_DECREF(meta);
+            meta = winner;
+            Py_INCREF(meta);
+        }
+    }
+    /* 查找元类是否定义了 __prepare__ 函数，未定义返回 0 */
+    if (_PyObject_LookupAttrId(meta, &PyId___prepare__, &prep) < 0) {
+        ns = NULL;
+    }
+    else if (prep == NULL) {
+        ns = PyDict_New();
+    }
+    /* 若定义则调用 meta.__prepare__(self, name, bases) */
+    else {
+        PyObject *pargs[2] = {name, bases};
+        ns = _PyObject_FastCallDict(prep, pargs, 2, mkw);
+        Py_DECREF(prep);
+    }
+    if (ns == NULL) {
+        goto error;
+    }
+    /* 以 ns 为 locals 调用类体函数，那么执行产生的对象将保存在 ns 中 */
+    cell = PyEval_EvalCodeEx(PyFunction_GET_CODE(func), PyFunction_GET_GLOBALS(func), ns,
+                             NULL, 0, NULL, 0, NULL, 0, NULL,
+                             PyFunction_GET_CLOSURE(func));
+    /* 正常 cell 返回 None 对象 */
+    if (cell != NULL) {
+        if (bases != orig_bases) {
+            if (PyMapping_SetItemString(ns, "__orig_bases__", orig_bases) < 0) {
+                goto error;
+            }
+        }
+        PyObject *margs[3] = {name, bases, ns};
+        /* 调用 meta(self, name, bases, ns, mkw) 构建类对象 */
+        cls = _PyObject_FastCallDict(meta, margs, 3, mkw);
+    }
+error:
+    Py_XDECREF(cell);
+    Py_XDECREF(ns);
+    Py_XDECREF(meta);
+    Py_XDECREF(mkw);
+    if (bases != orig_bases) {
+        Py_DECREF(orig_bases);
+    }
+    Py_DECREF(bases);
+    return cls;
+}
+```
+通过分析 `builtin___build_class__` 函数，真正构建类的逻辑被转发到了 metaclass 来完成。在 `Singer` 类中，我们指定了父类为 `object`，其类型 `type` 作为 metaclass 来构建类实例，关于调用参考：[为什么函数（或实例）可以被调用？](https://github.com/gndlwch2w/python-hows/blob/main/func.md#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%87%BD%E6%95%B0%E6%88%96%E5%AE%9E%E4%BE%8B%E5%8F%AF%E4%BB%A5%E8%A2%AB%E8%B0%83%E7%94%A8)，那么 `type` 的 `tp_call` 指向的 `type_call` 被调用来构建实例。其中，第一个参数为 `type`；`args` 为 `{类名, 父类 tuple, 类体成员 dict}`；`kwds` 为额外参数。
+```c
+/* typeobject.c */
+static PyObject *
+type_call(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    PyObject *obj;
+
+    /* 调用元类的 tp_new 构建类 */
+    obj = type->tp_new(type, args, kwds);
+    obj = _Py_CheckFunctionResult((PyObject*)type, obj, NULL);
+    if (obj == NULL)
+        return NULL;
+
+    /* If the returned object is not an instance of type,
+       it won't be initialized. */
+    /* 这里构建的 obj 为类，其类型为 type，直接返回 */
+    if (!PyType_IsSubtype(Py_TYPE(obj), type))
+        return obj;
+}
+```
+在 `type_call` 中，将创建转发到 `type` 的 `tp_new` 来构建，它的调用参数同 `type_call`。
+```c
+static PyObject *
+type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
+{
+    PyObject *name, *bases = NULL, *orig_dict, *dict = NULL;
+    PyObject *qualname, *slots = NULL, *tmp, *newslots, *cell;
+    PyTypeObject *type = NULL, *base, *tmptype, *winner;
+    PyHeapTypeObject *et;
+    PyMemberDef *mp;
+    Py_ssize_t i, nbases, nslots, slotoffset, name_size;
+    int j, may_add_dict, may_add_weak, add_dict, add_weak;
+    _Py_IDENTIFIER(__qualname__);
+    _Py_IDENTIFIER(__slots__);
+    _Py_IDENTIFIER(__classcell__);
+
+    dict = PyDict_Copy(orig_dict);
+    if (dict == NULL)
+        goto error;
+
+    /* Allocate the type object */
+    type = (PyTypeObject *)metatype->tp_alloc(metatype, nslots);
+    if (type == NULL)
+        goto error;
+
+    /* Initialize tp_dict from passed-in dict */
+    Py_INCREF(dict);
+    type->tp_dict = dict;
+
+    /* Initialize the rest */
+    if (PyType_Ready(type) < 0)
+        goto error;
+
+    /* Put the proper slots in place */
+    fixup_slot_dispatchers(type);
+
+    Py_DECREF(dict);
+    return (PyObject *)type;
+
+error:
+    Py_XDECREF(dict);
+    Py_XDECREF(bases);
+    Py_XDECREF(slots);
+    Py_XDECREF(type);
+    return NULL;
+}
+
+int PyType_Ready(PyTypeObject *type)
+{
+    PyObject *dict, *bases;
+    PyTypeObject *base;
+    Py_ssize_t i, n;
+
+    if (type->tp_flags & Py_TPFLAGS_READY)
+    {
+        assert(_PyType_CheckConsistency(type));
+        return 0;
+    }
+    type->tp_flags |= Py_TPFLAGS_READYING;
+
+    /* Initialize tp_dict */
+    dict = type->tp_dict;
+    if (dict == NULL)
+    {
+        dict = PyDict_New();
+        if (dict == NULL)
+            goto error;
+        type->tp_dict = dict;
+    }
+
+    /* Add type-specific descriptors to tp_dict */
+    if (add_operators(type) < 0)
+        goto error;
+    if (type->tp_methods != NULL)
+    {
+        /* 将 tp_methods 中的方法封装为描述器存入 tp_dict */
+        if (add_methods(type, type->tp_methods) < 0)
+            goto error;
+    }
+    if (type->tp_members != NULL)
+    {
+        /* 将 tp_members 中的字段封装为描述器存入 tp_dict */
+        if (add_members(type, type->tp_members) < 0)
+            goto error;
+    }
+    if (type->tp_getset != NULL)
+    {
+        /* 将 tp_getset 中的 PyGetSetDef 封装为描述器存入 tp_dict */
+        if (add_getset(type, type->tp_getset) < 0)
+            goto error;
+    }
+
+    /* Calculate method resolution order */
+    /* 计算 mro 存入 tp_mro */
+    if (mro_internal(type, NULL) < 0)
+        goto error;
+
+    /* Some more special stuff */
+    base = type->tp_base;
+    /* 继承父类的方法 */
+    if (base != NULL)
+    {
+        if (type->tp_as_async == NULL)
+            type->tp_as_async = base->tp_as_async;
+        if (type->tp_as_number == NULL)
+            type->tp_as_number = base->tp_as_number;
+        if (type->tp_as_sequence == NULL)
+            type->tp_as_sequence = base->tp_as_sequence;
+        if (type->tp_as_mapping == NULL)
+            type->tp_as_mapping = base->tp_as_mapping;
+        if (type->tp_as_buffer == NULL)
+            type->tp_as_buffer = base->tp_as_buffer;
+    }
+
+    type->tp_flags =
+        (type->tp_flags & ~Py_TPFLAGS_READYING) | Py_TPFLAGS_READY;
+    assert(_PyType_CheckConsistency(type));
+    return 0;
+
+error:
+    type->tp_flags &= ~Py_TPFLAGS_READYING;
+    return -1;
+}
+```
+对象的创建过程非常复杂，需要不仅需要处理继承，还要实现各种各样的技术，如 slots 的实现，将方法封装为方法描述器等。总之，这里核心关注在一个用户自定义类，本质上是一个 `PyTypeObject`，用户自定义的各种字段通过一个函数执行后保存到 `dict` 中，最后设置到该 `PyTypeObject` 的 `tp_dict` 指针。逐个细节在附中依次拆解。
+
 ## 附：常见对象的实现机制
 Python 内的 `PyObject` 大致包含两种，一种是在 C 层级实现的 `Py*Object`，另一种用户自定义实现的类型或实例。常见的对象，如 int（long）、float、bool、str（unicode）、tuple、list、dict、set、bytes 等。在已有的资料中已经包含大量这部分的论述，如下罗列：
 - int、bool（long）
