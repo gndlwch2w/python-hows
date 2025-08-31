@@ -164,6 +164,7 @@ typedef struct {
 
 上面提到需要一种数据结构来规范和承载各种数据，其定义为 `PyObject`，对于如 class 和 function，它们是具有不同性质的数据，派生自 `PyObject`。可以看到 function 的数据结构在 C 层面定义为 `PyFunctionObject`，它的前缀是 `PyObject`，其中包含了如函数名称、函数体等相关的成员，这些成员同样也是 `PyObject` 类型。
 ```c
+/* funcobject.h */
 typedef struct {
     PyObject_HEAD
     PyObject *func_code;        /* A code object, the __code__ attribute */
@@ -183,6 +184,7 @@ typedef struct {
 ```
 另外，我们提到，不同 `PyObject` 的子数据结构包含各式各样的属性和方法，为提供统一满足面向对象协议的用户界面，每个 `PyObject` 都包含有一个成员 `ob_type`，作为上面提到的另外一个数据结构来规范和承载各种数据结构的属性和方法，从而可以向外暴露统一的接口。这种数据结构在 CPython 中被定义为 `PyTypeObject`，其也是 `PyObject` 的子数据结构，它的成员如下，各字段的注释参考自：[PyTypeObject](https://docs.python.org/zh-cn/3.8/c-api/typeobj.html#c.PyTypeObject)。这种数据结构的功能是规范和承载各种非 `PyTypeObject` 的 `PyObject`，将它们的成员以统一的方式进行组织，如 `tp_methods` 和 `tp_members`，并提供相关的操作函数向外暴露统一的用户界面来访问其承载的各种 `PyObject`。
 ```c
+/* cpython/object.h */
 typedef struct _typeobject {
     PyObject_VAR_HEAD
     const char *tp_name; /* For printing, in format "<module>.<name>", sush as __main__.Cat */
@@ -324,4 +326,54 @@ typedef struct _typeobject {
 #endif
 } PyTypeObject;
 ```
-因此，除编译阶段外，研究 Python 执行阶段中的各种功能等于同研究 CPython 中的 `PyTypeObject` 和除 `PyTypeObject` 外的 `PyObject`。所以，类或对象就是 `PyObject`，或更广义，都是 `PyObject`。
+因此，除编译阶段外，研究 Python 执行阶段中的各种功能等于同研究 CPython 中的 `PyTypeObject` 和除 `PyTypeObject` 外的 `PyObject`。所以，类或对象就是 `PyObject`，或更广义，都是 `PyObject`。一些常见的对象实现机制，详见：[附：常见对象的实现机制](#附常见对象的实现机制)。
+
+## 附：常见对象的实现机制
+Python 内的 `PyObject` 大致包含两种，一种是在 C 层级实现的 `Py*Object`，另一种用户自定义实现的类型或实例。常见的对象，如 int（long）、float、bool、str（unicode）、tuple、list、dict、set、bytes 等。在已有的资料中已经包含大量这部分的论述，如下罗列：
+- int、bool（long）
+    - [CPython-Internals - long/int](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/long/long_cn.md)
+    - [码农高天 - 看似简单的加法，背后究竟有多少代码需要运行？看了才知道！](https://www.bilibili.com/video/BV1Db4y1x7di/?spm_id_from=333.1387.collection.video_card.click&vd_source=1e075be878ba55c5ebe75119b13bb41a)
+    - [junnplus - Python中的整数对象](https://github.com/Junnplus/blog/issues/12)
+    - [CPython Internals: Your Guide to the  Python 3 Interpreter - Object and Variable Object Types](https://realpython.com/products/cpython-internals-book)
+    - [3.8.20 Documentation - PyLongObject](https://docs.python.org/zh-cn/3.8/c-api/long.html?highlight=pylongobject#c.PyLongObject)
+    - [CPython Main - boolobject.c](https://github.com/python/cpython/blob/main/Objects/boolobject.c)
+    - [CPython Main - longobject.c](https://github.com/python/cpython/blob/main/Objects/longobject.c)
+- float
+    - [CPython-Internals - float](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/float/float_cn.md)
+    - [3.8.20 Documentation - PyFloatObject](https://docs.python.org/zh-cn/3.8/c-api/float.html?highlight=float#c.PyFloatObject)
+    - [CPython Main - floatobject.c](https://github.com/python/cpython/blob/main/Objects/floatobject.c)
+- str（unicode）
+    - [CPython-Internals - unicode/str](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/str/str_cn.md)
+    - [码农高天 - 你绝对不知道的字符串缓存机制！这个知识点有点太偏了](https://www.bilibili.com/video/BV1Q14y157v8/?spm_id_from=333.1387.collection.video_card.click&vd_source=1e075be878ba55c5ebe75119b13bb41a)
+    - [junnplus - Python中的字符串对象](https://github.com/Junnplus/blog/issues/13)
+    - [CPython internals - Example Python data types - Lecture 5](https://www.youtube.com/watch?v=ngkl95AMl5M&list=PLzV58Zm8FuBL6OAv1Yu6AwXZrnsFbbR0S&index=5)
+    - [CPython Internals: Your Guide to the  Python 3 Interpreter - The Unicode String Type](https://realpython.com/products/cpython-internals-book)
+    - [3.8.20 Documentation - unicode-objects](https://docs.python.org/zh-cn/3.8/c-api/unicode.html?highlight=pyunicode#unicode-objects)
+    - [CPython Main - unicodeobject.c](https://github.com/python/cpython/blob/main/Objects/unicodeobject.c)
+- tuple
+    - [CPython-Internals - tuple](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/tuple/tuple_cn.md)
+    - [CPython internals - Example Python data types - Lecture 5](https://www.youtube.com/watch?v=ngkl95AMl5M&list=PLzV58Zm8FuBL6OAv1Yu6AwXZrnsFbbR0S&index=5)
+    - [Inside The Python Virtual Machine - Type Object Case Studies](https://leanpub.com/insidethepythonvirtualmachine)
+    - [3.8.20 Documentation - PyTupleObject](https://docs.python.org/zh-cn/3.8/c-api/tuple.html?highlight=pytuple#c.PyTupleObject)
+    - [CPython Main - tupleobject.c](https://github.com/python/cpython/blob/main/Objects/tupleobject.c)
+- list
+    - [CPython-Internals - list(timsort)](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/list/list_cn.md)
+    - [junnplus - Python中的列表对象](https://github.com/Junnplus/blog/issues/14)
+    - [CPython internals - Example Python data types - Lecture 5](https://www.youtube.com/watch?v=ngkl95AMl5M&list=PLzV58Zm8FuBL6OAv1Yu6AwXZrnsFbbR0S&index=5)
+    - [3.8.20 Documentation - PyListObject](https://docs.python.org/zh-cn/3.8/c-api/list.html?highlight=pylistobject#c.PyListObject)
+    - [CPython Main - listobject.c](https://github.com/python/cpython/blob/main/Objects/listobject.c)
+- dict
+    - [CPython-Internals - dict](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/dict/dict_cn.md)
+    - [junnplus - Python中的字典对象](https://github.com/Junnplus/blog/issues/15)
+    - [CPython Internals: Your Guide to the  Python 3 Interpreter - The Dictionary Type](https://realpython.com/products/cpython-internals-book)
+    - [3.8.20 Documentation - PyDictObject](https://docs.python.org/zh-cn/3.8/c-api/dict.html?highlight=dict#c.PyDictObject)
+    - [CPython Main - dictobject.c](https://github.com/python/cpython/blob/main/Objects/dictobject.c)
+- set
+    - [CPython-Internals - set](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/set/set_cn.md)
+    - [码农高天 - 同样的set，不同的输出顺序？深度解析你肯定不知道的set背后的奥秘！](https://www.bilibili.com/video/BV1CU4y1y7Sg/?spm_id_from=333.1387.collection.video_card.click&vd_source=1e075be878ba55c5ebe75119b13bb41a)
+    - [3.8.20 Documentation - PySetObject](https://docs.python.org/zh-cn/3.8/c-api/set.html?highlight=pysetobject#c.PySetObject)
+    - [CPython Main - setobject.c](https://github.com/python/cpython/blob/main/Objects/setobject.c)
+- bytes
+    - [CPython-Internals - bytes](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/bytes/bytes_cn.md)
+    - [3.8.20 Documentation - PyBytesObject](https://docs.python.org/zh-cn/3.8/c-api/bytes.html?highlight=pybytesobject#c.PyBytesObject)
+    - [CPython Main - bytesobject.c](https://github.com/python/cpython/blob/main/Objects/bytesobject.c)

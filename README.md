@@ -3,6 +3,7 @@
 
 - [类](https://github.com/gndlwch2w/python-hows/blob/main/class.md)
     - [什么是类和对象？](https://github.com/gndlwch2w/python-hows/blob/main/class.md#%E4%BB%80%E4%B9%88%E6%98%AF%E7%B1%BB%E5%92%8C%E5%AF%B9%E8%B1%A1)
+    - [附：常见对象的实现机制](https://github.com/gndlwch2w/python-hows/blob/main/class.md#%E9%99%84%E5%B8%B8%E8%A7%81%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%9C%BA%E5%88%B6)
 - [函数](https://github.com/gndlwch2w/python-hows/blob/main/func.md)
     - [为什么函数（或实例）可以被调用？](https://github.com/gndlwch2w/python-hows/blob/main/func.md#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%87%BD%E6%95%B0%E6%88%96%E5%AE%9E%E4%BE%8B%E5%8F%AF%E4%BB%A5%E8%A2%AB%E8%B0%83%E7%94%A8)
     - [附：Vectorcall 的实现机制](https://github.com/gndlwch2w/python-hows/blob/main/func.md#%E9%99%84vectorcall-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%9C%BA%E5%88%B6)
