@@ -3,6 +3,7 @@
 
 - [类](https://github.com/gndlwch2w/python-hows/blob/main/class.md)
     - [什么是类和对象？](https://github.com/gndlwch2w/python-hows/blob/main/class.md#%E4%BB%80%E4%B9%88%E6%98%AF%E7%B1%BB%E5%92%8C%E5%AF%B9%E8%B1%A1)
+    - [内置对象是如何封装成员暴露接口的？](https://github.com/gndlwch2w/python-hows/blob/main/class.md#%E5%86%85%E7%BD%AE%E5%AF%B9%E8%B1%A1%E6%98%AF%E5%A6%82%E4%BD%95%E5%B0%81%E8%A3%85%E6%88%90%E5%91%98%E6%9A%B4%E9%9C%B2%E6%8E%A5%E5%8F%A3%E7%9A%84)
     - [附：常见对象的实现机制](https://github.com/gndlwch2w/python-hows/blob/main/class.md#%E9%99%84%E5%B8%B8%E8%A7%81%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%9C%BA%E5%88%B6)
 - [函数](https://github.com/gndlwch2w/python-hows/blob/main/func.md)
     - [为什么函数（或实例）可以被调用？](https://github.com/gndlwch2w/python-hows/blob/main/func.md#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%87%BD%E6%95%B0%E6%88%96%E5%AE%9E%E4%BE%8B%E5%8F%AF%E4%BB%A5%E8%A2%AB%E8%B0%83%E7%94%A8)

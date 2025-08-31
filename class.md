@@ -328,6 +328,207 @@ typedef struct _typeobject {
 ```
 因此，除编译阶段外，研究 Python 执行阶段中的各种功能等于同研究 CPython 中的 `PyTypeObject` 和除 `PyTypeObject` 外的 `PyObject`。所以，类或对象就是 `PyObject`，或更广义，都是 `PyObject`。一些常见的对象实现机制，详见：[附：常见对象的实现机制](#附常见对象的实现机制)。
 
+## 内置对象是如何封装成员暴露接口的？
+我们以 `tuple` 为例，研究其成员封装、接口暴露。如下可以看到 `tuple` 是一个 class，其类型为 type，其实例 `t` 的类型为 tuple，拥有和 `tuple` 相同的成员。`tuple` 在 C 层级为 `PyTypeObject` 的实例，实例名称为 `PyTuple_Type`；`t` 在 C 层级为 `PyTupleObject` 的实例。
+```python
+>>> tuple
+<class 'tuple'>
+>>> type(tuple)
+<class 'type'>
+>>> dir(tuple)
+['__add__', '__class__', '__contains__', '__delattr__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getitem__', '__getnewargs__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__iter__', '__le__', '__len__', '__lt__', '__mul__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__rmul__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', 'count', 'index']
+>>> t = tuple((1, 2, 3))
+>>> t
+(1, 2, 3)
+>>> type(t)
+<class 'tuple'>
+>>> set(dir(t)) - set(dir(tuple))
+set()
+```
+`tuple` 的功能是存储一组 Python 对象序列，实例创建后不能修改这组序列本身。所以实现 `tuple` 的 `PyTupleObject` 内拥有一个 `ob_item` 数组成员，用于保存 `tuple` 持有的这组 Python 对象序列。`PyTupleObject` 是一个 `PyVarObject`，因为不同元素个数的 tuple 所需要的 `ob_item` 长度不同，因此需要 `ob_size` 来记录额外所需的内存大小。
+```c
+/* object.h */
+#define PyObject_VAR_HEAD      PyVarObject ob_base;
+
+/* tupleobject.h */
+typedef struct {
+    PyObject_VAR_HEAD
+    /* ob_item contains space for 'ob_size' elements.
+       Items must normally not be NULL, except during construction when
+       the tuple is not yet visible outside the function that builds it. */
+    PyObject *ob_item[1];
+} PyTupleObject;
+```
+另外，在 `PyTupleObject` 被实例化时，其成员 `ob_type` 会指向 `PyTuple_Type`。之前提到 `PyTypeObject` 是用于封装 `Py*Object` 的成员和暴露统一的接口，那么 `PyTuple_Type` 就是对 `PyTupleObject` 的封装，并实现 `PyTypeObject` 所定义的接口，从而字节码层面看到的都是各种 `PyTypeObject` 和统一的接口，它们的处理逻辑一致，调用的是不同运行时的函数。如下是 `PyTuple_Type` 的具体实现，`0` 的项表示 `tuple` 类型不支持这一接口。
+```c
+PyTypeObject PyTuple_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "tuple",
+    sizeof(PyTupleObject) - sizeof(PyObject *),
+    sizeof(PyObject *),
+    (destructor)tupledealloc,                   /* tp_dealloc */
+    0,                                          /* tp_vectorcall_offset */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_as_async */
+    (reprfunc)tuplerepr,                        /* tp_repr */
+    0,                                          /* tp_as_number */
+    &tuple_as_sequence,                         /* tp_as_sequence */
+    &tuple_as_mapping,                          /* tp_as_mapping */
+    (hashfunc)tuplehash,                        /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    PyObject_GenericGetAttr,                    /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+        Py_TPFLAGS_BASETYPE | Py_TPFLAGS_TUPLE_SUBCLASS, /* tp_flags */
+    tuple_new__doc__,                           /* tp_doc */
+    (traverseproc)tupletraverse,                /* tp_traverse */
+    0,                                          /* tp_clear */
+    tuplerichcompare,                           /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    tuple_iter,                                 /* tp_iter */
+    0,                                          /* tp_iternext */
+    tuple_methods,                              /* tp_methods */
+    0,                                          /* tp_members */
+    0,                                          /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    0,                                          /* tp_init */
+    0,                                          /* tp_alloc */
+    tuple_new,                                  /* tp_new */
+    PyObject_GC_Del,                            /* tp_free */
+};
+```
+以 `tp_repr` 实现的 `tuplerepr` 举例来说，这些接口是何时被调用，我们通过 `repr` 函数输出 `tuple` 实例的可读字符串，并通过 `dis` 给出执行的字节码，其通过 `CALL_FUNCTION` 调用 `builtin` 中的 `repr` 函数来实现的功能。
+```python
+>>> repr((1, 2, 3))
+'(1, 2, 3)'
+>>> dis.dis('repr((1, 2, 3))')
+  1           0 LOAD_NAME                0 (repr)
+              2 LOAD_CONST               0 ((1, 2, 3))
+              4 CALL_FUNCTION            1
+              6 RETURN_VALUE
+```
+我们可以看到 `repr` 函数通过 `v->ob_type->tp_repr` 调用 `tuple` 实例的类型的 `tp_repr` 来完成输出。这里就容易理解为什么说 `PyTypeObject` 是封装各种对象的成员并暴露统一的接口了。
+```c
+/* bltinmodule.c */
+static PyObject *
+builtin_repr(PyObject *module, PyObject *obj)
+{
+    return PyObject_Repr(obj);
+}
+
+/* object.c */
+PyObject *PyObject_Repr(PyObject *v)
+{
+    PyObject *res;
+    res = (*v->ob_type->tp_repr)(v);
+    if (res == NULL)
+        return NULL;
+    return res;
+}
+```
+接下来，我们看 `tuple` 类型的 `tuplerepr` 实现，可以看到，其封装了对 `PyTupleObject` 的操作函数，并基于这种数据结构的特性实现了 `tp_repr` 的接口协议。
+```c
+/* tupleobject.c */
+static PyObject *
+tuplerepr(PyTupleObject *v)
+{
+    Py_ssize_t i, n;
+    _PyUnicodeWriter writer;
+
+    n = Py_SIZE(v);
+    if (n == 0)
+        return PyUnicode_FromString("()");
+
+    /* While not mutable, it is still possible to end up with a cycle in a
+       tuple through an object that stores itself within a tuple (and thus
+       infinitely asks for the repr of itself). This should only be
+       possible within a type. */
+    i = Py_ReprEnter((PyObject *)v);
+    if (i != 0) {
+        return i > 0 ? PyUnicode_FromString("(...)") : NULL;
+    }
+
+    _PyUnicodeWriter_Init(&writer);
+    writer.overallocate = 1;
+    if (Py_SIZE(v) > 1) {
+        /* "(" + "1" + ", 2" * (len - 1) + ")" */
+        writer.min_length = 1 + 1 + (2 + 1) * (Py_SIZE(v) - 1) + 1;
+    }
+    else {
+        /* "(1,)" */
+        writer.min_length = 4;
+    }
+
+    if (_PyUnicodeWriter_WriteChar(&writer, '(') < 0)
+        goto error;
+
+    /* Do repr() on each element. */
+    for (i = 0; i < n; ++i) {
+        PyObject *s;
+
+        if (i > 0) {
+            if (_PyUnicodeWriter_WriteASCIIString(&writer, ", ", 2) < 0)
+                goto error;
+        }
+
+        s = PyObject_Repr(v->ob_item[i]);
+        if (s == NULL)
+            goto error;
+
+        if (_PyUnicodeWriter_WriteStr(&writer, s) < 0) {
+            Py_DECREF(s);
+            goto error;
+        }
+        Py_DECREF(s);
+    }
+
+    writer.overallocate = 0;
+    if (n > 1) {
+        if (_PyUnicodeWriter_WriteChar(&writer, ')') < 0)
+            goto error;
+    }
+    else {
+        if (_PyUnicodeWriter_WriteASCIIString(&writer, ",)", 2) < 0)
+            goto error;
+    }
+
+    Py_ReprLeave((PyObject *)v);
+    return _PyUnicodeWriter_Finish(&writer);
+
+error:
+    _PyUnicodeWriter_Dealloc(&writer);
+    Py_ReprLeave((PyObject *)v);
+    return NULL;
+}
+```
+另外，我们注意到 `tp_methods` 属性，其以 `PyMethodDef` 协议封装了 `tuple` 特有的函数，其中的函数我们在 `dir(tuple)` 均有见过。这些成员以及其它成员通过各种明确的协议向外暴露，因此可以被统一的方式进行处理。
+```c
+/* tupleobject.c */
+static PyMethodDef tuple_methods[] = {
+    TUPLE___GETNEWARGS___METHODDEF
+    TUPLE_INDEX_METHODDEF
+    TUPLE_COUNT_METHODDEF
+    {NULL,              NULL}           /* sentinel */
+};
+
+/* clinic/tupleobject.c.h */
+#define TUPLE___GETNEWARGS___METHODDEF    \
+    {"__getnewargs__", (PyCFunction)tuple___getnewargs__, METH_NOARGS, tuple___getnewargs____doc__},
+
+#define TUPLE_INDEX_METHODDEF    \
+    {"index", (PyCFunction)(void(*)(void))tuple_index, METH_FASTCALL, tuple_index__doc__},
+
+#define TUPLE_COUNT_METHODDEF    \
+    {"count", (PyCFunction)tuple_count, METH_O, tuple_count__doc__},
+```
+
 ## 附：常见对象的实现机制
 Python 内的 `PyObject` 大致包含两种，一种是在 C 层级实现的 `Py*Object`，另一种用户自定义实现的类型或实例。常见的对象，如 int（long）、float、bool、str（unicode）、tuple、list、dict、set、bytes 等。在已有的资料中已经包含大量这部分的论述，如下罗列：
 - int、bool（long）
