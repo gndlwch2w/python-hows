@@ -3,6 +3,7 @@
 
 - [走进 CPython](https://github.com/gndlwch2w/python-hows/blob/main/intro.md)
     - [Python 是什么？](https://github.com/gndlwch2w/python-hows/blob/main/intro.md#python-%E6%98%AF%E4%BB%80%E4%B9%88)
+    - [Python 程序是如何运行起来的？](https://github.com/gndlwch2w/python-hows/blob/main/intro.md#python-%E7%A8%8B%E5%BA%8F%E6%98%AF%E5%A6%82%E4%BD%95%E8%BF%90%E8%A1%8C%E8%B5%B7%E6%9D%A5%E7%9A%84)
     - [附：`codeobject` 是什么？](https://github.com/gndlwch2w/python-hows/blob/main/intro.md#%E9%99%84codeobject-%E6%98%AF%E4%BB%80%E4%B9%88)
 - [类](https://github.com/gndlwch2w/python-hows/blob/main/class.md)
     - [什么是类和对象？](https://github.com/gndlwch2w/python-hows/blob/main/class.md#%E4%BB%80%E4%B9%88%E6%98%AF%E7%B1%BB%E5%92%8C%E5%AF%B9%E8%B1%A1)
