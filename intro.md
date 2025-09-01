@@ -6,11 +6,8 @@ Python（英语发音：/ˈpaɪθən/；英语发音：/ˈpaɪθɑːn/），是�
 然而，这种描述方法更多是站在计算机理论的分类树层级进行的描述，不容易具体了解它与我们常用的工具有什么共同点与不同点。**从用户的视角来说，Python 就是一个软件**。除所提供的功能不同，和常用的 Word、Latex、微信没有什么区别。对于使用者来说，如下图所示，存载源码的 `.py` 文件同 `.txt` 文件也没有什么不同，其作为输入，经过 Python 的处理得到输出。
 
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="img/intro_light.png">
-    <source media="(prefers-color-scheme: light)" srcset="img/intro_dark.png">
-    <img src="img/intro_dark.png" alt="Python intro" style="width: 75%; max-width: 600px; height: auto;">
-  </picture>
+    <img src="img/intro_light.png#gh-light-mode-only" alt="Python intro" width="75%">
+    <img src="img/intro_dark.png#gh-dark-mode-only" alt="Python intro" width="75%">
 </div>
 
 关于 Python 的学习和使用，通常是 `.py` 文件的内容，即如何以 Python 的语法进行编码。除了这部分以外，我们还关心 Python 是如何处理和执行我们提供的源码文件。官方支持的 Python 软件是通过 C 实现的，简称为 CPython，这里的 Python 软件就是通过编译 CPython 源码得到的可执行文件。
