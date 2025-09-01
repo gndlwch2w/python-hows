@@ -4,6 +4,7 @@ from urllib.parse import quote
 import warnings
 
 CHAPTERS = (
+    ('走进 CPython', 'intro.md'),
     ('类', 'class.md'),
     ('函数', 'func.md'),
     ('生成器', 'gen.md')
