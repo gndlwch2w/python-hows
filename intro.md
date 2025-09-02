@@ -12,7 +12,7 @@ Python（英语发音：/ˈpaɪθən/；英语发音：/ˈpaɪθɑːn/），是�
 
 现存的资料，如 [3.8.20 Documentation - Full Grammar specification](https://docs.python.org/3/reference/grammar.html)，包含很多关于 Python 语法和工具层面的学习和使用，旨在用户学习后能够提供满足语法要求的 Python 源码。除了编写源码以外，我们可能还关心 Python 程序是如何处理和执行我们提供的源码，这属于 Python 实现层面的范畴。任何软件都是由一种或多种编程语言实现，Python 同样不例外。Python 有许多语言实现，如 [PyPy](https://pypy.org)、[Jython](https://www.jython.org) 等。目前官方支持的 Python 主要通过 C 实现，称为 [CPython](https://github.com/python/cpython)。用户运行的 Python 程序是通过编译某个版本的 CPython 源码所得到的，其可直接下载官方发布的可执行程序，也可自行编译。
 
-在 CPython 的实现中，为便于理解，解释器的运行过程可大致分为两个阶段：编译阶段和执行阶段。编译阶段负责将我们提供的源码编译为字节码字节序列，并封装为 `codeobject` 对象，更多阅读：[附：`codeobject` 是什么？](#附codeobject-是什么)。而执行阶段负责执行 `codeobject` 对象。可以通过如下例子理解这一点，Python 向用户暴露了两个内置函数接口：[`compile(source, filename, mode, **kwargs)`](https://docs.python.org/3/library/functions.html#compile) 和 [`exec(source, globals=None, locals=None, **kwargs)`](https://docs.python.org/3/library/functions.html#exec)。`compile` 能够将用户输入的源码编译为 `codeobject` 对象，而 `exec` 能在给定的命名空间中执行 `codeobject` 对象。另外，`dis` 模块能够将 `codeobject` 内存储的字节码字节序列输出为可读的字符串。执行阶段所做的就是依据 `codeobject` 中的字节码一条一条执行的，直到指令全部执行后结束或出现无法处理的异常退出程序。
+在 CPython 的实现中，为便于理解，解释器的运行过程可大致分为两个阶段：编译阶段和执行阶段。编译阶段负责将我们提供的源码编译为字节码字节序列，并封装为 `codeobject`，更多阅读：[附：`codeobject` 是什么？](#附codeobject-是什么)。而执行阶段负责执行 `codeobject`。可以通过如下例子理解这一点，Python 向用户暴露了两个内置函数接口：[`compile(source, filename, mode, **kwargs)`](https://docs.python.org/3/library/functions.html#compile) 和 [`exec(source, globals=None, locals=None, **kwargs)`](https://docs.python.org/3/library/functions.html#exec)。`compile` 能够将用户输入的源码编译为 `codeobject`，而 `exec` 能在给定的命名空间中执行 `codeobject`。另外，`dis` 模块能够将 `codeobject` 内存储的字节码字节序列输出为可读的字符串。执行阶段所做的就是依据 `codeobject` 中的字节码一条一条执行的，直到指令全部执行后结束或出现无法处理的异常退出程序。
 ```python
 # 将源码 x = 1 编译为 codeobject 对象
 >>> c = compile('x = 1', '<stdin>', 'exec')
@@ -42,7 +42,15 @@ y = 2
 z = x + y
 print(z)
 ```
-在控制台通过命令 `python demo.py`，我们就可以看到输出 `3`。那么，在 CPython 这是如何做到的，我们逐步分析 CPython 的实现源码，跟随调用栈了解我们编写程序的执行过程。CPython 的程序入口在 `Programs` 文件夹下的 `python.c`，即 `python` 命令的执行入口，后面的参数 `demo.py` 通过 `argv` 传入。
+在控制台通过命令 `python demo.py`，我们就可以看到输出 `3`。
+```bash
+~ python demo.py
+3
+```
+那么 Python 是如何做到的？我们逐步分析 CPython 的实现，从程序入口跟随调用栈了解 CPython 的运行过程。CPython 各发布版本的源码文件可从 [cpython - tags](https://github.com/python/cpython/tags) 获取。所有的源码都参考自 [v3.8.20](https://github.com/python/cpython/releases/tag/v3.8.20) 的实现。首先 CPython 的程序入口在 `Programs` 文件夹下的 `python.c`，其中包含了一个 `main` 函数，即 `python` 命令的执行入口，命令行参数 `demo.py` 通过 `argv` 传入。不同的操作系统，入口略微不同，这里参考非 Windows 系统版本的入口。
+- `Py_BytesMain` 函数初步将命令行参数进行封装。
+- `pymain_main` 函数主要完成了 Python 解释器的初始化，包括如运行时配置（如设置内存分配函数、垃圾回收处理函数、代码执行函数、线程锁和一些运行时控制参数等）、命令行参数解析、环境变量读取与配置（如配置 `sys.path` 等）。
+- `pymain_run_python` 函数则根据配置信息确定 python 的运行模式，如以 `python -c` 执行提供的源码字符串、以 `python -m` 执行某个 python 模块、以 `python demo.py` 执行某个脚本、以 `python code/` 或 `python code.zip` 执行某个项目、以 `python` 或 `python -i` 进入交互式环境（REPL）。
 ```c
 /* Programs/python.c */
 int
@@ -186,7 +194,9 @@ done:
     Py_XDECREF(main_importer_path);
 }
 ```
-到这里，我们以 `python demo.py` 方式运行的程序，从 `pymain_run_file(config, &cf)` 进入。
+由于我们脚本 `python demo.py` 方式运行的程序，调用栈从 `pymain_run_file(config, &cf)` 进入。
+- `pymain_run_file` 函数对输入的源码文件进行检查、读取和一些简单处理，然后转换文件名为 `unicode` 编码便于后续使用。
+- `PyRun_AnyFileExFlags` 函数判断是否是以 `python -i file.py` 的模式运行。若是则先执行 `file.py` 文件然后进入 REPL 模式。否则以普通脚本方式运行，这种方式在执行完毕给定的脚本后会退出程序，不会进入 REPL 模式。
 ```c
 static int
 pymain_run_file(PyConfig *config, PyCompilerFlags *cf)
@@ -288,7 +298,11 @@ PyRun_AnyFileExFlags(FILE *fp, const char *filename, int closeit,
         return PyRun_SimpleFileExFlags(fp, filename, closeit, flags);
 }
 ```
-当以如以 `python -i demo.py` 方式运行，会在交互式环境下执行 `demo.py`。这里以 `PyRun_SimpleFileExFlags` 方式继续。
+同样，`python demo.py` 的执行方式应以 `PyRun_SimpleFileExFlags` 函数继续。
+- `PyRun_SimpleFileExFlags` 函数将文件名转换为 `PyUnicodeObject` 对象后继续。
+- `pyrun_simple_file` 函数为执行脚本创建了一个 `__main__` 模块，然后将如 `__file__` 等相关信息写入到模块的 `__dict__` 中。接着判断当前脚本是否存在预编译的 `.pyc` 文件，若存在则通过 `run_pyc_file` 方式运行。否则以 `pyrun_file` 方式运行。
+
+`.pyc` 文件是 `.py` 文件编译后的字节码文件，通常会放在 `__pycache__` 文件夹下，当运行一个 `.py` 文件或导入一个模块后，相关文件会被生成，以加速程序的运行。
 ```c
 /* Python/pythonrun.c */
 int
@@ -391,7 +405,10 @@ pyrun_simple_file(FILE *fp, PyObject *filename, int closeit,
     return ret;
 }
 ```
-`.pyc` 文件是 `.py` 文件编译后的字节码文件，通常会放在 `__pycache__` 文件夹下，当运行一个 `.py` 文件或导入一个模块后，这个文件会被生成，以加速程序的运行。这里第一次运行 `demo.py`，从 `pyrun_file` 继续，这里的 `globals` 和 `locals` 都指向 `__main__` 模块的 `__dict__`。
+我们由于是第一次运行 `python demo.py`，从 `pyrun_file` 函数继续，这里的传入参数的 `globals` 和 `locals` 都指向 `__main__` 模块的 `__dict__`。
+- `pyrun_file` 函数从 Python 的内存管理中申请了一块 4kb 的 arena，后续的对象会在里面进行存储。然后编译源码文件为抽象语法树（AST）对象（粗略包括：具体语法树生成 -> 抽象语法树生成以及相关的符号表等），这些对象就存储在统一内存管理的 arena 中。接着运行 AST 对象。
+- `run_mod` 函数将 AST 对象编译为 `codeobject`（粗略包含：字节码发射、字节码优化和封装为 `codeobject`），然后运行生成的 `codeobject`。
+- `run_eval_code_obj` 函数检查基础依赖如 `__builtins__` 是否被包含到命名空间中，然后继续运行。
 ```c
 /* Python/pythonrun.c */
 static PyObject *
@@ -480,7 +497,9 @@ run_eval_code_obj(PyCodeObject *co, PyObject *globals, PyObject *locals)
     return v;
 }
 ```
-万事俱备后，调用到了 `PyEval_EvalCode` 函数，开始真正进入代码的执行阶段。
+万事俱备后，调用到了 `PyEval_EvalCode` 函数，开始真正进入代码的执行阶段，其中传递了编译的代码对象、全局变量和局部变量命名空间参数。接着直到调用到 `_PyEval_EvalCodeWithName` 函数。
+- `_PyEval_EvalCodeWithName` 函数内核心创建了 `codeobject` 的执行环境 frame 对象。以及将传递的参数进行解析，如解析函数调用时传递进入的各种参数、闭包等。然后判断执行的模式，如是生成器或 coroutine 时需要特殊处理。将相关的参数和代码对象封装到 frame 对象后，执行 frame 对象。
+- `PyEval_EvalFrameEx` 函数获取到 `pymain_main` 函数内初始化的 frame 执行函数，默认为 `_PyEval_EvalFrameDefault`。
 ```c
 /* Python/ceval.c */
 PyObject *
@@ -631,7 +650,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
     return interp->eval_frame(f, throwflag);
 }
 ```
-Python 中，执行 `codeobject` 的最后阶段是执行 `frameobject`，其还是执行 `codeobject` 中的字节码，`frame` 为执行过程提供环境。在 `PyEval_EvalFrameEx` 调用到解释器状态初始化的 `eval_frame` 函数指针，其默认为 `_PyEval_EvalFrameDefault`。
+`_PyEval_EvalFrameDefault` 是真正字节码执行的函数，其中所有依赖的上下文都来自 frame 对象，其中包含了一个巨大的 `switch` 代码块，用于执行给定的字节码，即从代码对象中读取到的每一条字节码都依次在一个无限循环中通过 `switch-case` 来逐个执行。到此，我们了解到 Python 是如何把用户提供的程序变成可以执行的字节码，以及针对不同的字节码是如何处理的。
 ```c
 /* ceval.c */
 PyObject* _Py_HOT_FUNCTION
@@ -725,7 +744,7 @@ main_loop:
     }
 }
 ```
-我们先通过 `dis` 查看 `demo.py` 的字节码，然后在分析它如何在 `_PyEval_EvalFrameDefault` 中执行的。
+下面我们先先通过 `dis` 查看 `demo.py` 的字节码，然后在分析它如何在 `_PyEval_EvalFrameDefault` 函数中执行的。
 ```text
 # python -m dis demo.py
   2           0 LOAD_CONST               0 (1)
@@ -748,8 +767,10 @@ main_loop:
 ```
 在编译得到的字节码中，`LOAD_CONST` 从 `codeobject` 的常量表里获取到对象，然后压入 `frame` 的值栈中，接着 `STORE_NAME` 从名字常量元组中获得变量名 `'x'`，将栈顶元素弹出，然后存储到 `locals` 中，完成 `x = 1` 的赋值操作。同理，`y = 1` 也一样。然后，`LOAD_NAME` 从 `locals` 里读取到变量 `x` 和 `y` 的值，并分别压入栈中，`BINARY_ADD` 先弹出一个栈顶对象，在获取到当前的栈顶对象，调用 `PyNumber_Add` 函数执行两个对象求和，将结果设置为栈顶。然后通过 `STORE_NAME` 赋值到变量 `z`。紧接着继续将 `print` 和 `z` 压入栈，调用 `CALL_FUNCTION` 执行 `print` 函数。然后 `POP_TOP` 弹出 `print` 的返回值，最后返回 `None` 完成 `frame` 的执行后退出。
 
+到此，我们了解到 CPython 是基于一条条字节码的执行来实现运行我们编码的程序，而字节码的运行是基于栈实现的。因此研究每个 Python 提供的功能，首先需要了解其通过什么字节码实现的（如通过 `dis` 模块能够便捷的实现这一点），然后再从字节码的实现顺着调用栈就可以了解具体的实现逻辑。
+
 ## 附：`codeobject` 是什么？
-`codeobject` 对象是封装编译 Python 源码后的对象，由 `PyCodeObject` 定义，是 `PyCode_Type` 的实例。`PyCodeObject` 的结构如下，是一个静态对象，即编译后就不会发生改变以及只会在内存中存在一份。
+`codeobject` 是封装编译 Python 源码后的对象，由 `PyCodeObject` 定义，是 `PyCode_Type` 的实例。`PyCodeObject` 的结构如下，是一个静态对象，即编译后就不会发生改变以及只会在内存中存在一份。
 ```c
 typedef struct {
     PyObject_HEAD
@@ -806,7 +827,7 @@ def print_code(code):
         if name.startswith('co_') and (v := getattr(code, name)):
             print(f'{name}: {v}')
 ```
-第一个案例为编译 `x = 1` 得到的 `codeobject` 对象中各字段的取值。
+第一个案例为编译 `x = 1` 得到的 `codeobject` 中各字段的取值。
 ```python
 >>> c = compile('x = 1', '<stdin>', 'exec')
 >>> print_code(c)
@@ -827,7 +848,7 @@ co_names: ('x',)
 # 执行过程需要的最大栈深
 co_stacksize: 1
 ```
-第二个案例时编译一个具有不同传参方式的函数 `f`。Python 的函数传参方式大概可以分为如下几种：普通位置传参，指如 `f(1, 2, 3)` 这种通过相对位置关系区分传递参数；positional-only 传参，指如只能以 `f(1, 2)` 方式传递参数，不能以如 `f(1, b=2)` 方式传递，因此是普通位置传参的子集；keyword-only 传参，指如只能以 `f(1, 2, 3, d=4)` 方式传参，不能以如 `f(1, 2, 3, 4)` 方式传递；可变传参：指以 *args 和 **kwargs 方式传递参数。
+第二个案例是编译一个具有不同传参方式的函数 `f`。Python 的函数传参方式大概可以分为如下几种：普通位置传参，指如 `f(1, 2, 3)` 这种通过相对位置关系区分传递参数；positional-only 传参，指如只能以 `f(1, 2)` 方式传递参数，不能以如 `f(1, b=2)` 方式传递，因此是普通位置传参的子集；keyword-only 传参，指如只能以 `f(1, 2, 3, d=4)` 方式传参，不能以如 `f(1, 2, 3, 4)` 方式传递；可变传参：指以 *args 和 **kwargs 方式传递参数。
 ```python
 >>> def f(a, b, /, c, *, d, e=5): pass
 >>> print_code(demo.f.__code__)
@@ -888,4 +909,4 @@ co_nlocals: 1
 co_stacksize: 2
 co_varnames: ('y',)
 ```
-因此，总结来说 `codeobject` 对象就是封装执行 Python 代码时的所需要信息的数据结构，属于只读对象，在 Python 层面修改其属性会引发 `AttributeError: readonly attribute` 错误。
+因此，总结来说 `codeobject` 就是封装执行 Python 代码时的所需要信息的数据结构，属于只读对象，在 Python 层面修改其属性会引发 `AttributeError: readonly attribute` 错误。
