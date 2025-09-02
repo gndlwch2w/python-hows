@@ -749,3 +749,143 @@ main_loop:
 在编译得到的字节码中，`LOAD_CONST` 从 `codeobject` 的常量表里获取到对象，然后压入 `frame` 的值栈中，接着 `STORE_NAME` 从名字常量元组中获得变量名 `'x'`，将栈顶元素弹出，然后存储到 `locals` 中，完成 `x = 1` 的赋值操作。同理，`y = 1` 也一样。然后，`LOAD_NAME` 从 `locals` 里读取到变量 `x` 和 `y` 的值，并分别压入栈中，`BINARY_ADD` 先弹出一个栈顶对象，在获取到当前的栈顶对象，调用 `PyNumber_Add` 函数执行两个对象求和，将结果设置为栈顶。然后通过 `STORE_NAME` 赋值到变量 `z`。紧接着继续将 `print` 和 `z` 压入栈，调用 `CALL_FUNCTION` 执行 `print` 函数。然后 `POP_TOP` 弹出 `print` 的返回值，最后返回 `None` 完成 `frame` 的执行后退出。
 
 ## 附：`codeobject` 是什么？
+`codeobject` 对象是封装编译 Python 源码后的对象，由 `PyCodeObject` 定义，是 `PyCode_Type` 的实例。`PyCodeObject` 的结构如下，是一个静态对象，即编译后就不会发生改变以及只会在内存中存在一份。
+```c
+typedef struct {
+    PyObject_HEAD
+    int co_argcount;            /* #arguments, except *args */
+    int co_posonlyargcount;     /* #positional only arguments */
+    int co_kwonlyargcount;      /* #keyword only arguments */
+    int co_nlocals;             /* #local variables */
+    int co_stacksize;           /* #entries needed for evaluation stack */
+    int co_flags;               /* CO_..., see below */
+    int co_firstlineno;         /* first source line number */
+    PyObject *co_code;          /* instruction opcodes */
+    PyObject *co_consts;        /* list (constants used) */
+    PyObject *co_names;         /* list of strings (names used) */
+    PyObject *co_varnames;      /* tuple of strings (local variable names) */
+    PyObject *co_freevars;      /* tuple of strings (free variable names) */
+    PyObject *co_cellvars;      /* tuple of strings (cell variable names) */
+    /* The rest aren't used in either hash or comparisons, except for co_name,
+       used in both. This is done to preserve the name and line number
+       for tracebacks and debuggers; otherwise, constant de-duplication
+       would collapse identical functions/lambdas defined on different lines.
+    */
+    Py_ssize_t *co_cell2arg;    /* Maps cell vars which are arguments. */
+    PyObject *co_filename;      /* unicode (where it was loaded from) */
+    PyObject *co_name;          /* unicode (name, for reference) */
+    PyObject *co_lnotab;        /* string (encoding addr<->lineno mapping) See
+                                   Objects/lnotab_notes.txt for details. */
+    void *co_zombieframe;       /* for optimization only (see frameobject.c) */
+    PyObject *co_weakreflist;   /* to support weakrefs to code objects */
+    /* Scratch space for extra data relating to the code object.
+       Type is a void* to keep the format private in codeobject.c to force
+       people to go through the proper APIs. */
+    void *co_extra;
+
+    /* Per opcodes just-in-time cache
+     *
+     * To reduce cache size, we use indirect mapping from opcode index to
+     * cache object:
+     *   cache = co_opcache[co_opcache_map[next_instr - first_instr] - 1]
+     */
+
+    // co_opcache_map is indexed by (next_instr - first_instr).
+    //  * 0 means there is no cache for this opcode.
+    //  * n > 0 means there is cache in co_opcache[n-1].
+    unsigned char *co_opcache_map;
+    _PyOpcache *co_opcache;
+    int co_opcache_flag;  // used to determine when create a cache.
+    unsigned char co_opcache_size;  // length of co_opcache.
+} PyCodeObject;
+```
+我们通过分析如下几个源码编译的案例，了解其中各字段的含义。首先定义一个函数 `print_code` 用于输出 `codeobject` 暴露给用户的属性。
+```python
+def print_code(code):
+    for name in dir(code):
+        if name.startswith('co_') and (v := getattr(code, name)):
+            print(f'{name}: {v}')
+```
+第一个案例为编译 `x = 1` 得到的 `codeobject` 对象中各字段的取值。
+```python
+>>> c = compile('x = 1', '<stdin>', 'exec')
+>>> print_code(c)
+# 源码编译后的经压缩的操作码字节序列
+co_code: b'd\x00Z\x00d\x01S\x00'
+# 常量表，表示程序所有使用到的常量对象 tuple
+co_consts: (1, None)
+# 文件名，表示源码来自什么地方
+co_filename: <stdin>
+# 提供了如函数、类、模块等代码段在源文件的起始位置
+co_firstlineno: 1
+# 标志位，表明代码段是否是生成器、coroutine 等
+co_flags: 64
+# 代码对象的名称，如模块名、函数名或类名等
+co_name: <module>
+# 如全局变量名、属性名、函数名的常量表，不包含局部变量名
+co_names: ('x',)
+# 执行过程需要的最大栈深
+co_stacksize: 1
+```
+第二个案例时编译一个具有不同传参方式的函数 `f`。Python 的函数传参方式大概可以分为如下几种：普通位置传参，指如 `f(1, 2, 3)` 这种通过相对位置关系区分传递参数；positional-only 传参，指如只能以 `f(1, 2)` 方式传递参数，不能以如 `f(1, b=2)` 方式传递，因此是普通位置传参的子集；keyword-only 传参，指如只能以 `f(1, 2, 3, d=4)` 方式传参，不能以如 `f(1, 2, 3, 4)` 方式传递；可变传参：指以 *args 和 **kwargs 方式传递参数。
+```python
+>>> def f(a, b, /, c, *, d, e=5): pass
+>>> print_code(demo.f.__code__)
+# 普通位置参数个数；不包括 keyword-only 参数、*args、**kwargs
+co_argcount: 3
+co_code: b'd\x00S\x00'
+co_consts: (None,)
+co_filename: <stdin>
+co_firstlineno: 1
+co_flags: 67
+# keyword-only 参数个数（仅限 k=v 传参）；不包括普通位置参数、*args、**kwargs；如 d 和 e
+co_kwonlyargcount: 2
+co_name: f
+# 局部变量的个数
+co_nlocals: 5
+# positional-only 的参数个数（仅限位置传参）；不包括 *args、**kwargs；如 a 和 b
+co_posonlyargcount: 2
+co_stacksize: 1
+# 局部变量名的常量表
+co_varnames: ('a', 'b', 'c', 'd', 'e')
+```
+第三个案例编译一个具有函数闭包的函数 `f`。Python 中支持嵌套函数定义，允许内部函数引用外部函数的变量，那么就需要将引用的变量以特殊方式记录下来，以便于访问。在编译阶段，就能找出哪些变量属于函数闭包变量，分别存储在 `co_freevars` 和 `co_cellvars` 中。
+```python
+>>> def f(x):
+...     def g(y):
+...         return x + y
+...     return g
+...
+>>> print_code(f.__code__)
+co_argcount: 1
+# 内嵌函数引用的局部变量名表
+co_cellvars: ('x',)
+co_code: b'\x87\x00f\x01d\x01d\x02\x84\x08}\x01|\x01S\x00'
+co_consts: (None, <code object g at 0x1036ced40, file "<stdin>", line 2>, 'f.<locals>.g')
+co_filename: <stdin>
+co_firstlineno: 1
+co_flags: 3
+# 描述字节码指令和源码行号之间的映射关系，即一行源码对应几条字节码
+co_lnotab: b'\x00\x01\x0c\x02'
+co_name: f
+co_nlocals: 2
+co_stacksize: 3
+co_varnames: ('x', 'g')
+
+>>> g = f(10)
+>>> print_code(g.__code__)
+co_argcount: 1
+co_code: b'\x88\x00|\x00\x17\x00S\x00'
+co_consts: (None,)
+co_filename: <stdin>
+co_firstlineno: 2
+co_flags: 19
+# 引用外部函数的局部变量名表
+co_freevars: ('x',)
+co_lnotab: b'\x00\x01'
+co_name: g
+co_nlocals: 1
+co_stacksize: 2
+co_varnames: ('y',)
+```
+因此，总结来说 `codeobject` 对象就是封装执行 Python 代码时的所需要信息的数据结构，属于只读对象，在 Python 层面修改其属性会引发 `AttributeError: readonly attribute` 错误。
