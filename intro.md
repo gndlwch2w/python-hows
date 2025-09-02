@@ -12,7 +12,7 @@ Python（英语发音：/ˈpaɪθən/；英语发音：/ˈpaɪθɑːn/），是�
 
 现存的资料，如 [3.8.20 Documentation - Full Grammar specification](https://docs.python.org/3/reference/grammar.html)，包含很多关于 Python 语法和工具层面的学习和使用，旨在用户学习后能够提供满足语法要求的 Python 源码。除了编写源码以外，我们可能还关心 Python 程序是如何处理和执行我们提供的源码，这属于 Python 实现层面的范畴。任何软件都是由一种或多种编程语言实现，Python 同样不例外。Python 有许多语言实现，如 [PyPy](https://pypy.org)、[Jython](https://www.jython.org) 等。目前官方支持的 Python 主要通过 C 实现，称为 [CPython](https://github.com/python/cpython)。用户运行的 Python 程序是通过编译某个版本的 CPython 源码所得到的，其可直接下载官方发布的可执行程序，也可自行编译。
 
-在 CPython 的实现中，为便于理解，解释器的运行过程可大致分为两个阶段：编译阶段和执行阶段。编译阶段负责将我们提供的源码编译为字节码字节序列，并封装为 `codeobject`，更多阅读：[附：`codeobject` 是什么？](#附codeobject-是什么)。而执行阶段负责执行 `codeobject`。可以通过如下例子理解这一点，Python 向用户暴露了两个内置函数接口：[`compile(source, filename, mode, **kwargs)`](https://docs.python.org/3/library/functions.html#compile) 和 [`exec(source, globals=None, locals=None, **kwargs)`](https://docs.python.org/3/library/functions.html#exec)。`compile` 能够将用户输入的源码编译为 `codeobject`，而 `exec` 能在给定的命名空间中执行 `codeobject`。另外，`dis` 模块能够将 `codeobject` 内存储的字节码字节序列输出为可读的字符串。执行阶段所做的就是依据 `codeobject` 中的字节码一条一条执行的，直到指令全部执行后结束或出现无法处理的异常退出程序。
+在 CPython 的实现中，为便于理解，解释器的运行过程可大致分为两个阶段：编译阶段和执行阶段。编译阶段负责将我们提供的源码编译为字节码字节序列，并封装为 code 对象，更多阅读：[附：code 对象是什么？](#附code-对象是什么)。而执行阶段负责执行 code 对象。可以通过如下例子理解这一点，Python 向用户暴露了两个内置函数接口：[`compile(source, filename, mode, **kwargs)`](https://docs.python.org/3/library/functions.html#compile) 和 [`exec(source, globals=None, locals=None, **kwargs)`](https://docs.python.org/3/library/functions.html#exec)。`compile` 能够将用户输入的源码编译为 code 对象，而 `exec` 能在给定的命名空间中执行 code 对象。另外，`dis` 模块能够将 code 对象内存储的字节码字节序列输出为可读的字符串。执行阶段所做的就是依据 code 对象中的字节码一条一条执行的，直到指令全部执行后结束或出现无法处理的异常退出程序。
 ```python
 # 将源码 x = 1 编译为 codeobject 对象
 >>> c = compile('x = 1', '<stdin>', 'exec')
@@ -407,7 +407,7 @@ pyrun_simple_file(FILE *fp, PyObject *filename, int closeit,
 ```
 我们由于是第一次运行 `python demo.py`，从 `pyrun_file` 函数继续，这里的传入参数的 `globals` 和 `locals` 都指向 `__main__` 模块的 `__dict__`。
 - `pyrun_file` 函数从 Python 的内存管理中申请了一块 4kb 的 arena，后续的对象会在里面进行存储。然后编译源码文件为抽象语法树（AST）对象（粗略包括：具体语法树生成 -> 抽象语法树生成以及相关的符号表等），这些对象就存储在统一内存管理的 arena 中。接着运行 AST 对象。
-- `run_mod` 函数将 AST 对象编译为 `codeobject`（粗略包含：字节码发射、字节码优化和封装为 `codeobject`），然后运行生成的 `codeobject`。
+- `run_mod` 函数将 AST 对象编译为 code 对象（粗略包含：字节码发射、字节码优化和封装为 code 对象），然后运行生成的 code 对象。
 - `run_eval_code_obj` 函数检查基础依赖如 `__builtins__` 是否被包含到命名空间中，然后继续运行。
 ```c
 /* Python/pythonrun.c */
@@ -498,7 +498,7 @@ run_eval_code_obj(PyCodeObject *co, PyObject *globals, PyObject *locals)
 }
 ```
 万事俱备后，调用到了 `PyEval_EvalCode` 函数，开始真正进入代码的执行阶段，其中传递了编译的代码对象、全局变量和局部变量命名空间参数。接着直到调用到 `_PyEval_EvalCodeWithName` 函数。
-- `_PyEval_EvalCodeWithName` 函数内核心创建了 `codeobject` 的执行环境 frame 对象。以及将传递的参数进行解析，如解析函数调用时传递进入的各种参数、闭包等。然后判断执行的模式，如是生成器或 coroutine 时需要特殊处理。将相关的参数和代码对象封装到 frame 对象后，执行 frame 对象。
+- `_PyEval_EvalCodeWithName` 函数内核心创建了 code 对象的执行环境 frame 对象，更多阅读：[附：frame 对象是什么？](#附frame-对象是什么)。以及将传递的参数进行解析，如解析函数调用时传递进入的各种参数、闭包等。然后判断执行的模式，如是生成器或 coroutine 时需要特殊处理。将相关的参数和代码对象封装到 frame 对象后，执行 frame 对象。
 - `PyEval_EvalFrameEx` 函数获取到 `pymain_main` 函数内初始化的 frame 执行函数，默认为 `_PyEval_EvalFrameDefault`。
 ```c
 /* Python/ceval.c */
@@ -765,13 +765,14 @@ main_loop:
              24 LOAD_CONST               2 (None)
              26 RETURN_VALUE
 ```
-在编译得到的字节码中，`LOAD_CONST` 从 `codeobject` 的常量表里获取到对象，然后压入 `frame` 的值栈中，接着 `STORE_NAME` 从名字常量元组中获得变量名 `'x'`，将栈顶元素弹出，然后存储到 `locals` 中，完成 `x = 1` 的赋值操作。同理，`y = 1` 也一样。然后，`LOAD_NAME` 从 `locals` 里读取到变量 `x` 和 `y` 的值，并分别压入栈中，`BINARY_ADD` 先弹出一个栈顶对象，在获取到当前的栈顶对象，调用 `PyNumber_Add` 函数执行两个对象求和，将结果设置为栈顶。然后通过 `STORE_NAME` 赋值到变量 `z`。紧接着继续将 `print` 和 `z` 压入栈，调用 `CALL_FUNCTION` 执行 `print` 函数。然后 `POP_TOP` 弹出 `print` 的返回值，最后返回 `None` 完成 `frame` 的执行后退出。
+在编译得到的字节码中，`LOAD_CONST` 从 code 对象的常量表里获取到对象，然后压入 `frame` 的值栈中，接着 `STORE_NAME` 从名字常量元组中获得变量名 `'x'`，将栈顶元素弹出，然后存储到 `locals` 中，完成 `x = 1` 的赋值操作。同理，`y = 1` 也一样。然后，`LOAD_NAME` 从 `locals` 里读取到变量 `x` 和 `y` 的值，并分别压入栈中，`BINARY_ADD` 先弹出一个栈顶对象，在获取到当前的栈顶对象，调用 `PyNumber_Add` 函数执行两个对象求和，将结果设置为栈顶。然后通过 `STORE_NAME` 赋值到变量 `z`。紧接着继续将 `print` 和 `z` 压入栈，调用 `CALL_FUNCTION` 执行 `print` 函数。然后 `POP_TOP` 弹出 `print` 的返回值，最后返回 `None` 完成 `frame` 的执行后退出。
 
 到此，我们了解到 CPython 是基于一条条字节码的执行来实现运行我们编码的程序，而字节码的运行是基于栈实现的。因此研究每个 Python 提供的功能，首先需要了解其通过什么字节码实现的（如通过 `dis` 模块能够便捷的实现这一点），然后再从字节码的实现顺着调用栈就可以了解具体的实现逻辑。
 
-## 附：`codeobject` 是什么？
-`codeobject` 是封装编译 Python 源码后的对象，由 `PyCodeObject` 定义，是 `PyCode_Type` 的实例。`PyCodeObject` 的结构如下，是一个静态对象，即编译后就不会发生改变以及只会在内存中存在一份。
+## 附：code 对象是什么？
+code 对象是封装编译 Python 源码后的对象，由 `PyCodeObject` 定义，是 `PyCode_Type` 的实例。`PyCodeObject` 的结构如下，是一个静态对象，即编译后就不会发生改变以及只会在内存中存在一份。
 ```c
+/* codeobject.h */
 typedef struct {
     PyObject_HEAD
     int co_argcount;            /* #arguments, except *args */
@@ -820,14 +821,14 @@ typedef struct {
     unsigned char co_opcache_size;  // length of co_opcache.
 } PyCodeObject;
 ```
-我们通过分析如下几个源码编译的案例，了解其中各字段的含义。首先定义一个函数 `print_code` 用于输出 `codeobject` 暴露给用户的属性。
+我们通过分析如下几个源码编译的案例，了解其中各字段的含义。首先定义一个函数 `print_code` 用于输出 code 对象暴露给用户的属性。
 ```python
 def print_code(code):
     for name in dir(code):
         if name.startswith('co_') and (v := getattr(code, name)):
             print(f'{name}: {v}')
 ```
-第一个案例为编译 `x = 1` 得到的 `codeobject` 中各字段的取值。
+第一个案例为编译 `x = 1` 得到的 code 对象中各字段的取值。
 ```python
 >>> c = compile('x = 1', '<stdin>', 'exec')
 >>> print_code(c)
@@ -909,4 +910,63 @@ co_nlocals: 1
 co_stacksize: 2
 co_varnames: ('y',)
 ```
-因此，总结来说 `codeobject` 就是封装执行 Python 代码时的所需要信息的数据结构，属于只读对象，在 Python 层面修改其属性会引发 `AttributeError: readonly attribute` 错误。
+因此，总结来说 code 对象就是封装执行 Python 代码时的所需要信息的数据结构，属于只读对象，在 Python 层面修改其属性会引发 `AttributeError: readonly attribute` 错误。
+
+## 附：frame 对象是什么？
+frame 对象的功能是为 Python 的代码段提供执行环境，在 C 实现中定义为 `PyFrameObject`，是 `PyFrame_Type` 的实例。每当 Python 执行一个代码段就会建立一个新的 frame 对象，如调用函数、导入新模块、初始化类和调用方法等，这些部分可以视作不同的命名空间，因此需要不同的 frame 来存储如局部变量、全局变量的信息。如下为 `PyFrameObject` 的结构体定义：
+```c
+typedef struct _frame {
+    PyObject_VAR_HEAD
+    struct _frame *f_back;      /* previous frame, or NULL */
+    PyCodeObject *f_code;       /* code segment */
+    PyObject *f_builtins;       /* builtin symbol table (PyDictObject) */
+    PyObject *f_globals;        /* global symbol table (PyDictObject) */
+    PyObject *f_locals;         /* local symbol table (any mapping) */
+    PyObject **f_valuestack;    /* points after the last local */
+    /* Next free slot in f_valuestack.  Frame creation sets to f_valuestack.
+       Frame evaluation usually NULLs it, but a frame that yields sets it
+       to the current stack top. */
+    PyObject **f_stacktop;
+    PyObject *f_trace;          /* Trace function */
+    char f_trace_lines;         /* Emit per-line trace events? */
+    char f_trace_opcodes;       /* Emit per-opcode trace events? */
+
+    /* Borrowed reference to a generator, or NULL */
+    PyObject *f_gen;
+
+    int f_lasti;                /* Last instruction if called */
+    /* Call PyFrame_GetLineNumber() instead of reading this field
+       directly.  As of 2.3 f_lineno is only valid when tracing is
+       active (i.e. when f_trace is set).  At other times we use
+       PyCode_Addr2Line to calculate the line from the current
+       bytecode index. */
+    int f_lineno;               /* Current line number */
+    int f_iblock;               /* index in f_blockstack */
+    char f_executing;           /* whether the frame is still executing */
+    PyTryBlock f_blockstack[CO_MAXBLOCKS]; /* for try and loop blocks */
+    PyObject *f_localsplus[1];  /* locals+stack, dynamically sized */
+} PyFrameObject;
+```
+其中的字段如 `f_back` 是 frame 对象的单链表指针，当如调用一个函数时，建立新的 frame 对象中的 `f_back` 就会指向父层级的 frame 对象。`f_code` 就是 code 对象，即 frame 真正执行的字节码。`f_builtins` 指向 `__builtins__.__dict__`。`f_globals` 和 `f_locals` 表示代码段的全局变量和局部变量命名空间。`f_valuestack` 表示值栈的起始指针，而 `f_stacktop` 表示栈顶指针。`f_trace`、`f_trace_lines` 和 `f_trace_opcodes` 与调试和追踪机制相关。`f_gen` 在函数时生成器时会指向生成器函数对象。`f_lasti` 为指令计数器，表明当前执行到第几条字节码。`f_lineno` 表示当前正在执行的源码行号。`f_iblock` 和 `f_blockstack` 与 `with` 和 `try-catch-finally` 块执行相关。`f_localsplus` 是实现高效的访问执行期间的本地变量，如 `freevars`。
+
+`inspect` 模块提供获取 `currentframe` 接口用于获取当前正在执行的 frame 对象。如下输出了 REPL 模式下 frame 对象的属性。
+```python
+>>> import inspect
+>>> f = inspect.currentframe()
+>>> f
+<frame at 0x102cc9440, file '<stdin>', line 1, code <module>>
+>>> for name in dir(f):
+...     if name.startswith('f_'):
+...             print(name, getattr(f, name))
+... 
+f_back None
+f_builtins {'__name__': 'builtins', ...}
+f_code <code object <module> at 0x1028157a0, file "<stdin>", line 1>
+f_globals {'__name__': '__main__', ...}
+f_lasti 36
+f_lineno 1
+f_locals {'__name__': '__main__', ...}
+f_trace None
+f_trace_lines True
+f_trace_opcodes False
+```
