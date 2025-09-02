@@ -1,34 +1,37 @@
 ## Python 是什么？
-当你在 wiki 上检索这个问题，你会得到如下正式且无歧义的描述。
+当你在 wiki 上检索这个问题，你会得到如下正式的定义。
 ```text
 Python（英语发音：/ˈpaɪθən/；英语发音：/ˈpaɪθɑːn/），是一种广泛使用的解释型、高级和通用的编程语言。
 ```
-然而，这种描述方法更多是站在计算机理论的分类树层级进行的描述，不容易具体了解它与我们常用的工具有什么共同点与不同点。**从用户的视角来说，Python 就是一个软件**。除所提供的功能不同，和常用的 Word、Latex、微信没有什么区别。对于使用者来说，如下图所示，存载源码的 `.py` 文件同 `.txt` 文件也没有什么不同，其作为输入，经过 Python 的处理得到输出。
+然而，这种描述方法更多是站在编程语言分类树进行的描述，不容易了解到与其它工具的共同点与不同点。**从用户的视角来说，Python 类似一个软件**。除所提供的功能和用户界面不同，它与常用的如 Word、Latex、微信等各种软件非常类似。如下图所示，用户需要提供源码文件（如 `.py` 文件，其类似 `.txt` 文件，用于存储文本信息）作为输入，然后输入到 Python 中，经过它的处理后得到输出。具体完成的任务由用户和 Python 提供的基础服务决定，就像是微信提供向某好友发送信息的基础服务，而用户决定向哪个好友以及发送什么信息来作为服务的输入。
 
 <div align="center">
     <img src="img/intro_light.png#gh-light-mode-only" alt="Python intro" width="75%">
     <img src="img/intro_dark.png#gh-dark-mode-only" alt="Python intro" width="75%">
 </div>
 
-关于 Python 的学习和使用，通常是 `.py` 文件的内容，即如何以 Python 的语法进行编码。除了这部分以外，我们还关心 Python 是如何处理和执行我们提供的源码文件。官方支持的 Python 软件是通过 C 实现的，简称为 CPython，这里的 Python 软件就是通过编译 CPython 源码得到的可执行文件。
+现存的资料，如 [3.8.20 Documentation - Full Grammar specification](https://docs.python.org/3/reference/grammar.html)，包含很多关于 Python 语法和工具层面的学习和使用，旨在用户学习后能够提供满足语法要求的 Python 源码。除了编写源码以外，我们可能还关心 Python 程序是如何处理和执行我们提供的源码，这属于 Python 实现层面的范畴。任何软件都是由一种或多种编程语言实现，Python 同样不例外。Python 有许多语言实现，如 [PyPy](https://pypy.org)、[Jython](https://www.jython.org) 等。目前官方支持的 Python 主要通过 C 实现，称为 [CPython](https://github.com/python/cpython)。用户运行的 Python 程序是通过编译某个版本的 CPython 源码所得到的，其可直接下载官方发布的可执行程序，也可自行编译。
 
-在 CPython 的实现中，其包含两个核心部分，即编译器和解释器。编译器负责将我们编码的 Python 源代码编译为字节码，并封装为 `codeobject` 对象，更多阅读：[附：`codeobject` 是什么？](#附codeobject-是什么)。而解释器负责执行 `codeobject` 中的字节码。Python 向用户暴露了两个接口：`compile` 和 `exec`。`compile` 能够将用户输入的源码编译为 `codeobject` 对象，而 `exec` 能在指定的命名空间中执行给定的 `codeobject` 对象。另外，`dis` 能够将 `codeobject` 内存储的字节码二进制表示输出为可读的字符串。解释器就是依据 `codeobject` 中的字节码一条一条执行的，直到指令全部执行后结束或出现无法处理的异常退出程序。
+在 CPython 的实现中，为便于理解，解释器的运行过程可大致分为两个阶段：编译阶段和执行阶段。编译阶段负责将我们提供的源码编译为字节码字节序列，并封装为 `codeobject` 对象，更多阅读：[附：`codeobject` 是什么？](#附codeobject-是什么)。而执行阶段负责执行 `codeobject` 对象。可以通过如下例子理解这一点，Python 向用户暴露了两个内置函数接口：[`compile(source, filename, mode, **kwargs)`](https://docs.python.org/3/library/functions.html#compile) 和 [`exec(source, globals=None, locals=None, **kwargs)`](https://docs.python.org/3/library/functions.html#exec)。`compile` 能够将用户输入的源码编译为 `codeobject` 对象，而 `exec` 能在给定的命名空间中执行 `codeobject` 对象。另外，`dis` 模块能够将 `codeobject` 内存储的字节码字节序列输出为可读的字符串。执行阶段所做的就是依据 `codeobject` 中的字节码一条一条执行的，直到指令全部执行后结束或出现无法处理的异常退出程序。
 ```python
+# 将源码 x = 1 编译为 codeobject 对象
 >>> c = compile('x = 1', '<stdin>', 'exec')
 >>> c
 <code object <module> at 0x102e70710, file "<stdin>", line 1>
 >>> ns = {}
+# 在命名空间 ns 解释执行提供的 codeobject 对象
 >>> exec(c, ns)
 >>> ns
 {'x': 1}
 >>> import dis
+# 查看源码编译的字节码序列
 >>> dis.dis(c.co_code)
   1           0 LOAD_CONST               0 (1)
               2 STORE_NAME               0 (x)
               4 LOAD_CONST               1 (None)
               6 RETURN_VALUE
 ```
-将 Python 的源代码编译为字节码的过程属于编译原理的内容，不属于我们讨论的范畴，我们仅关心对于 Python 提供给用户的某个功能，在 CPython 层面是如何实现的，即关心其解释器的部分的实现。
+将 Python 源码编译为字节码的过程属于编译原理的内容，不属于我们讨论的范畴，更多阅读可参考 [CPython Internals: Your Guide to the  Python 3 Interpreter - The Compiler](https://realpython.com/products/cpython-internals-book)、[Inside The Python Virtual Machine - Compiling Python Source Code](https://leanpub.com/insidethepythonvirtualmachine) 和 [CS143](https://web.stanford.edu/class/cs143/)。我们仅关心对于 Python 提供给用户的某个功能在 CPython 层面是如何实现的，即关心执行阶段的实现。
 
 ## Python 程序是如何运行起来的？
 我们编写了如下 `demo.py` 的 Python 程序，实现计算变量 `x` 和变量 `y` 的和，然后保存到变量 `z`，最后打印 `z`。
