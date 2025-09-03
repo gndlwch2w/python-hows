@@ -527,25 +527,29 @@ static PyMethodDef tuple_methods[] = {
 除了 `tuple` 以外，Python 还提供了一组常见对象的类似机理实现，详见：[附：常见对象的实现机制](#附常见对象的实现机制)。
 
 ## 用户自定义类对象是如何被创建的？
-如下我们自定义了 Singer 类，在模块被导入或在 <stdin> 模式下完成 Singer 的输入后回车，Singer 实例被自动创建，其类型是 `type`，表明其可能与 `tuple` 一样，是一个 `PyTypeObject` 对象。
+如下我们自定义了 `Singer` 类，在模块被导入或在 REPL 模式下定义完 `Singer` 类后后回车，`Singer` 类实例就会被自动创建，其类型是 `type`，表明其可能与 `tuple` 一样，是一个 `PyTypeObject` 对象。同时，`dir(Singer)` 内不仅包含了公共的成员，还包含了独特成员，如 `default_lyric` 和 `sing`。
 ```python
 class Singer(object):
+    default_lyric = "Only because you are so beautiful"
     def __init__(self, name='Xukun Cai'):
         self.name = name
     def sing(self):
-        return f'{self.name} sings: Only because you are so beautiful'
+        return f"{self.name} sings: {self.default_lyric}"
 
 >>> Singer
 <class '__main__.Singer'>
 >>> type(Singer)
 <class 'type'>
 >>> dir(Singer)
-['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'sing']
+['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', 
+'__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', 
+'__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', 
+'__subclasshook__', '__weakref__', 'default_lyric', 'sing']
 ```
-我们通过 `dis` 查看 `Singer` 类创建过程的字节码。观察我们发现，类是通过 `LOAD_BUILD_CLASS` 字节码创建并保存到 `Singer` 变量的，它的参数包含 `Singer` 类体的函数，类名 `'Singer'` 和父类 `object`。
+通过 `dis` 查看 `Singer` 类创建过程的字节码。观察发现，类实例是通过 `LOAD_BUILD_CLASS` 字节码创建，然后保存到 `Singer` 变量的。它的参数包含 `Singer` 类体声明函数 `Singer()`、类名 `'Singer'` 和父类 `object`。
 ```text
   2           0 LOAD_BUILD_CLASS
-              2 LOAD_CONST               0 (<code object Singer at 0x1050ecb30, file "<dis>", line 2>)
+              2 LOAD_CONST               0 (<code object Singer at 0x100fa7240, file "<dis>", line 2>)
               4 LOAD_CONST               1 ('Singer')
               6 MAKE_FUNCTION            0
               8 LOAD_CONST               1 ('Singer')
@@ -555,39 +559,61 @@ class Singer(object):
              16 LOAD_CONST               2 (None)
              18 RETURN_VALUE
 
-Disassembly of <code object Singer at 0x1050ecb30, file "<dis>", line 2>:
+Disassembly of <code object Singer at 0x100fa7240, file "<dis>", line 2>:
   2           0 LOAD_NAME                0 (__name__)
               2 STORE_NAME               1 (__module__)
               4 LOAD_CONST               0 ('Singer')
               6 STORE_NAME               2 (__qualname__)
 
-  3           8 LOAD_CONST               7 (('Xukun Cai',))
-             10 LOAD_CONST               2 (<code object __init__ at 0x1050ec920, file "<dis>", line 3>)
-             12 LOAD_CONST               3 ('Singer.__init__')
-             14 MAKE_FUNCTION            1 (defaults)
-             16 STORE_NAME               3 (__init__)
+  3           8 LOAD_CONST               1 ('Only because you are so beautiful')
+             10 STORE_NAME               3 (default_lyric)
 
-  5          18 LOAD_CONST               4 (<code object sing at 0x1050eca80, file "<dis>", line 5>)
-             20 LOAD_CONST               5 ('Singer.sing')
-             22 MAKE_FUNCTION            0
-             24 STORE_NAME               4 (sing)
-             26 LOAD_CONST               6 (None)
-             28 RETURN_VALUE
+  4          12 LOAD_CONST               8 (('Xukun Cai',))
+             14 LOAD_CONST               3 (<code object __init__ at 0x100fa70e0, file "<dis>", line 4>)
+             16 LOAD_CONST               4 ('Singer.__init__')
+             18 MAKE_FUNCTION            1 (defaults)
+             20 STORE_NAME               4 (__init__)
+
+  6          22 LOAD_CONST               5 (<code object sing at 0x100fa7190, file "<dis>", line 6>)
+             24 LOAD_CONST               6 ('Singer.sing')
+             26 MAKE_FUNCTION            0
+             28 STORE_NAME               5 (sing)
+             30 LOAD_CONST               7 (None)
+             32 RETURN_VALUE
+
+Disassembly of <code object __init__ at 0x100fa70e0, file "<dis>", line 4>:
+  5           0 LOAD_FAST                1 (name)
+              2 LOAD_FAST                0 (self)
+              4 STORE_ATTR               0 (name)
+              6 LOAD_CONST               0 (None)
+              8 RETURN_VALUE
+
+Disassembly of <code object sing at 0x100fa7190, file "<dis>", line 6>:
+  7           0 LOAD_FAST                0 (self)
+              2 LOAD_ATTR                0 (name)
+              4 FORMAT_VALUE             0
+              6 LOAD_CONST               1 (' sings: ')
+              8 LOAD_FAST                0 (self)
+             10 LOAD_ATTR                1 (default_lyric)
+             12 FORMAT_VALUE             0
+             14 BUILD_STRING             3
+             16 RETURN_VALUE
 ```
-观察 `Singer` 类体的函数，其大致可以对应为 `Singer()` 函数，作用是类成员初始化。
+观察 `Singer` 类体声明函数，可大致可以对应为 `Singer()` 函数，作用是类成员初始化。`Singer()` 函数内的赋值操作都是通过 `STORE_NAME` 字节码实现的，因此在函数执行期间，这些成员变量都会存储到一个 frame 的局部变量的字典中。这可能作为在初始化类实例成员时，获得用户提供的类成员和方法的途径。
 ```python
 def Singer():
     __module__ = __name__
-    __qualname__ = 'Singer'
-    def __init__(self, name='Xukun Cai'):
+    __qualname__ = "Singer"
+    default_lyric = "Only because you are so beautiful"
+    def __init__(self, name="Xukun Cai"):
         self.name = name
-    __init__.__qualname__ = 'Singer.__init__'
+    __init__.__qualname__ = "Singer.__init__"
     def sing(self):
-        return f'{self.name} sings: Only because you are so beautiful'
-    sing.__qualname__ = 'Singer.sing'
+        return f"{self.name} sings: {self.default_lyric}"
+    sing.__qualname__ = "Singer.sing"
     return None
 ```
-我们进一步分析 `LOAD_BUILD_CLASS` 的实现，可以看到，其功能是从 `builtins` 中找到 `__build_class__` 函数并压栈。
+现在，我们进入 `LOAD_BUILD_CLASS` 的实现分析类实例是如何被创建的。从实现看到，它的作用是从 `builtins` 中找到 `__build_class__` 函数并压栈，也就说，真正被调用的函数是 `__build_class__`。
 ```c
 /* ceval.c */
 PyObject* _Py_HOT_FUNCTION
@@ -620,7 +646,7 @@ main_loop:
     }
 }
 ```
-我们继续找到 `__build_class__` 的实现，其中参数 `self` 为 `__build_class__` 对象本身；`args` 为 frame 的值栈，代表的参数依次为 `Singer` 类体的函数、类名 `'Singer'` 和父类 `object`；`nargs` 为参数个数，`kwnames` 为额外的参数。
+具体到 Singer 类的创建，其中参数 `self` 为 `__build_class__` 对象本身；`args` 为 frame 的值栈，包含的参数依次为 `Singer` 类体声明函数 `Singer()`、类名 `'Singer'` 和父类 `object`；`nargs` 为参数个数，`kwnames` 为额外的参数，这里为 `NULL`。在 `__build_class__` 函数中，首先是从值栈中解析出上述的参数列表；然后为类实例的创建匹配一个合适的元类，默认情况下为 `type`；紧接着调用类体声明函数 `Singer()` 并指定命名空间字典，这样函数内执行的赋值操作就会存到命名空间字典中；最后以类名、继承的父类元组和类体函数执行的命名空间字典作为参数将元类视为函数进行调用得到类实例，默认情况下类似调用 [`type('Singer', (object,), {...})`](https://docs.python.org/zh-cn/3.8/library/functions.html#type) 创建类实例对象，这同样是 Python 暴露的一个动态创建类的接口。
 ```c
 /* Python/bltinmodule.c */
 static PyObject *
@@ -728,7 +754,7 @@ error:
     return cls;
 }
 ```
-通过分析 `builtin___build_class__` 函数，真正构建类的逻辑被转发到了 metaclass 来完成。在 `Singer` 类中，我们指定了父类为 `object`，其类型 `type` 作为 metaclass 来构建类实例，关于调用参考：[为什么函数（或实例）可以被调用？](https://github.com/gndlwch2w/python-hows/blob/main/func.md#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%87%BD%E6%95%B0%E6%88%96%E5%AE%9E%E4%BE%8B%E5%8F%AF%E4%BB%A5%E8%A2%AB%E8%B0%83%E7%94%A8)，那么 `type` 的 `tp_call` 指向的 `type_call` 被调用来构建实例。其中，第一个参数为 `type`；`args` 为 `{类名, 父类 tuple, 类体成员 dict}`；`kwds` 为额外参数。
+尽管 `Singer` 继承了 `object` 类，但是在元类匹配时 `meta = (PyObject *) (base0->ob_type)` 获取到 `object` 类实例的类型，其为 `type`。因此，实际是调用 `type` 来创建对象，由于 `type` 在 C 层面初始化为 `PyType_Type`，而调用 `type` 就相当于调用 `PyType_Type` 的 `tp_call` 槽指向的函数指针，即 `type_call`。关于为什么是这样调用的，参考：[为什么对象可以被调用？](https://github.com/gndlwch2w/python-hows/blob/main/func.md#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%AF%B9%E8%B1%A1%E5%8F%AF%E4%BB%A5%E8%A2%AB%E8%B0%83%E7%94%A8)。在 `tp_call` 中，实质是调用 `PyType_Type` 的 `tp_new` 槽指向的函数指针，即 `type_new`。
 ```c
 /* typeobject.c */
 static PyObject *
@@ -749,7 +775,14 @@ type_call(PyTypeObject *type, PyObject *args, PyObject *kwds)
         return obj;
 }
 ```
-在 `type_call` 中，将创建转发到 `type` 的 `tp_new` 来构建，它的调用参数同 `type_call`。
+`tp_new` 就是真正魔法发挥作用的地方，它的调用参数同 `type_call`。
+- 检查调用是否为 `type(obj)` 的调用，若是则直接返回 `obj` 的类型，否则就是创建实例。
+- 对输入参数的解析，如类名、基类 tuple 和命名空间字典。
+- 处理继承的问题，按照一定规则，找出合适的元类和基类，在默认情况下为 `type` 和 `object`。
+- 处理 `__slots__` 和 `__dict__`、`__weakref__`，若没有定义 `__slots__` 和基类也没有 `__dict__` 或 `__weakref__`，则允许子类添加 `__dict__` 和或 `__weakref__`。否则需要处理 `__slots__`，如检查 slots 定义是否命名冲突和符合变量命名规则等、以及处理 `__slots__` 允许 `__dict__` 的情况，是否存在重复指定，`__weakref__` 也类似。更多内容参考：[附：\_\_slots__ 机制如何使实例属性访问变快的？](#附slots-机制如何使实例属性访问变快的)。
+- 依据元类和 `nslots` 分配内存，但是堆内存布局不完全等同于 `PyTypeObject`，而是它的扩充版本 `PyHeapTypeObject`，可以认为这是 `PyTypeObject` 的前缀。然后就是设置一些字段值，如类名、slots、标志位和一些公共接口的指针引用，使得 `PyTypeObject` 的指向和 `PyHeapTypeObject` 一致；以及基类、`tp_dict`、`__module__`、`__qualname__`、`tp_doc`；若实现了 `__new__`、`__init_subclass__` 和 `__class_getitem__` 则封装为静态方法或类方法。
+- 将 `__slots__` 的成员封装在 `PyHeapTypeObject` 的后面，依据基类是否定义 `__dict__` 而决定是否需要设置 `tp_dictoffset`。
+
 ```c
 static PyObject *
 type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
@@ -765,18 +798,545 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
     _Py_IDENTIFIER(__slots__);
     _Py_IDENTIFIER(__classcell__);
 
+    assert(args != NULL && PyTuple_Check(args));
+    assert(kwds == NULL || PyDict_Check(kwds));
+
+    /* 判断是否是 type(obj) 的调用 */
+    /* Special case: type(x) should return x->ob_type */
+    /* We only want type itself to accept the one-argument form (#27157)
+       Note: We don't call PyType_CheckExact as that also allows subclasses */
+    if (metatype == &PyType_Type) {
+        const Py_ssize_t nargs = PyTuple_GET_SIZE(args);
+        const Py_ssize_t nkwds = kwds == NULL ? 0 : PyDict_GET_SIZE(kwds);
+
+        if (nargs == 1 && nkwds == 0) {
+            PyObject *x = PyTuple_GET_ITEM(args, 0);
+            Py_INCREF(Py_TYPE(x));
+            return (PyObject *) Py_TYPE(x);
+        }
+
+        /* SF bug 475327 -- if that didn't trigger, we need 3
+           arguments. but PyArg_ParseTuple below may give
+           a msg saying type() needs exactly 3. */
+        if (nargs != 3) {
+            PyErr_SetString(PyExc_TypeError,
+                            "type() takes 1 or 3 arguments");
+            return NULL;
+        }
+    }
+
+    /* 参数解析 */
+    /* Check arguments: (name, bases, dict) */
+    if (!PyArg_ParseTuple(args, "UO!O!:type.__new__", &name, &PyTuple_Type,
+                          &bases, &PyDict_Type, &orig_dict))
+        return NULL;
+
+    /* Adjust for empty tuple bases */
+    nbases = PyTuple_GET_SIZE(bases);
+    if (nbases == 0) {
+        /* 没有给父类，默认继承 object */
+        base = &PyBaseObject_Type;
+        bases = PyTuple_Pack(1, base);
+        if (bases == NULL)
+            return NULL;
+        nbases = 1;
+    }
+    else {
+        _Py_IDENTIFIER(__mro_entries__);
+        for (i = 0; i < nbases; i++) {
+            tmp = PyTuple_GET_ITEM(bases, i);
+            if (PyType_Check(tmp)) {
+                continue;
+            }
+            /* 断言所有父类不能实现 mro_entries */
+            if (_PyObject_LookupAttrId(tmp, &PyId___mro_entries__, &tmp) < 0) {
+                return NULL;
+            }
+            if (tmp != NULL) {
+                PyErr_SetString(PyExc_TypeError,
+                                "type() doesn't support MRO entry resolution; "
+                                "use types.new_class()");
+                Py_DECREF(tmp);
+                return NULL;
+            }
+        }
+        /* 从继承的父类中找到最佳的元类，即所有类的最顶层类型，一般为 type */
+        /* Search the bases for the proper metatype to deal with this: */
+        winner = _PyType_CalculateMetaclass(metatype, bases);
+        if (winner == NULL) {
+            return NULL;
+        }
+
+        /* 若找到的元类不是 type，那么调用给定元类的 tp_new */
+        if (winner != metatype) {
+            if (winner->tp_new != type_new) /* Pass it to the winner */
+                return winner->tp_new(winner, args, kwds);
+            metatype = winner;
+        }
+
+        /* 
+        由于 Python 支持多继承，即可以继承多个父类，通过 C3 MRO 计算找出最适合的父类，
+        一方面检查是否所有类之间是否有冲突，比如存在多个变长类型基类、基类的结构体布局冲突等
+        另一方面就是选出一个内存布局兼容性最强的父类作为 base 返回
+        */
+        /* Calculate best base, and check that all bases are type objects */
+        base = best_base(bases);
+        if (base == NULL) {
+            return NULL;
+        }
+
+        Py_INCREF(bases);
+    }
+
+    /* Use "goto error" from this point on as we now own the reference to "bases". */
+
     dict = PyDict_Copy(orig_dict);
     if (dict == NULL)
         goto error;
 
+    /* Check for a __slots__ sequence variable in dict, and count it */
+    slots = _PyDict_GetItemIdWithError(dict, &PyId___slots__);
+    nslots = 0;
+    add_dict = 0;
+    add_weak = 0;
+    may_add_dict = base->tp_dictoffset == 0;
+    may_add_weak = base->tp_weaklistoffset == 0 && base->tp_itemsize == 0;
+    if (slots == NULL) {
+        if (PyErr_Occurred()) {
+            goto error;
+        }
+        /* 父类没有 __dict__ 槽，则子类添加 */
+        if (may_add_dict) {
+            add_dict++;
+        }
+        if (may_add_weak) {
+            add_weak++;
+        }
+    }
+    else {
+        /* Have slots */
+
+        /* Make it into a tuple */
+        if (PyUnicode_Check(slots))         /* __slots = '...' */
+            slots = PyTuple_Pack(1, slots); /* slots = ('...', ) */
+        else
+            slots = PySequence_Tuple(slots);
+        if (slots == NULL)
+            goto error;
+        assert(PyTuple_Check(slots));
+
+        /* Are slots allowed? */
+        nslots = PyTuple_GET_SIZE(slots);
+        /*
+        可变类型对象，如 int、tuple、str，不允许有 __slots__
+
+            >>> class A(int):
+            ...     __slots__ = ('x',)
+            ...
+            Traceback (most recent call last):
+            File "<stdin>", line 1, in <module>
+            TypeError: nonempty __slots__ not supported for subtype of 'int'
+        */
+        if (nslots > 0 && base->tp_itemsize != 0) {
+            PyErr_Format(PyExc_TypeError,
+                         "nonempty __slots__ "
+                         "not supported for subtype of '%s'",
+                         base->tp_name);
+            goto error;
+        }
+
+        /* Check for valid slot names and two special cases */
+        for (i = 0; i < nslots; i++) {
+            PyObject *tmp = PyTuple_GET_ITEM(slots, i);
+            /* 检查定义的 slots 项是否符合变量命名规则 */
+            if (!valid_identifier(tmp))
+                goto error;
+            assert(PyUnicode_Check(tmp));
+            if (_PyUnicode_EqualToASCIIId(tmp, &PyId___dict__)) {
+                /*
+                slots 内指定 __dict__，若父类存在 __dict__ 或子类已经标记则不能重复指定
+
+                    >>> class A:
+                    ...     pass
+                    ...
+                    >>> class B(A):
+                    ...     __slots__ = ('__dict__',)
+                    ...
+                    Traceback (most recent call last):
+                    File "<stdin>", line 1, in <module>
+                    TypeError: __dict__ slot disallowed: we already got one
+                */
+                if (!may_add_dict || add_dict) {
+                    PyErr_SetString(PyExc_TypeError,
+                                    "__dict__ slot disallowed: "
+                                    "we already got one");
+                    goto error;
+                }
+                /* 使得 __slots__ 类也支持 __dict__ */
+                add_dict++;
+            }
+            if (_PyUnicode_EqualToASCIIString(tmp, "__weakref__")) {
+                if (!may_add_weak || add_weak) {
+                    PyErr_SetString(PyExc_TypeError,
+                                    "__weakref__ slot disallowed: "
+                                    "either we already got one, "
+                                    "or __itemsize__ != 0");
+                    goto error;
+                }
+                add_weak++;
+            }
+        }
+
+        /* Copy slots into a list, mangle names and sort them.
+           Sorted names are needed for __class__ assignment.
+           Convert them back to tuple at the end.
+        */
+        /* 单独处理 __dict__ 和 __weakref__ slots */
+        newslots = PyList_New(nslots - add_dict - add_weak);
+        if (newslots == NULL)
+            goto error;
+        for (i = j = 0; i < nslots; i++) {
+            tmp = PyTuple_GET_ITEM(slots, i);
+            /* 不复制 __dict__ 和 __weakref__ 到 newslots 中 */
+            if ((add_dict &&
+                 _PyUnicode_EqualToASCIIId(tmp, &PyId___dict__)) ||
+                (add_weak &&
+                 _PyUnicode_EqualToASCIIString(tmp, "__weakref__")))
+                continue;
+            /* 私有属性变量名改写：__<变量名> -> _<类名>__<变量名> */
+            tmp = _Py_Mangle(name, tmp);
+            if (!tmp) {
+                Py_DECREF(newslots);
+                goto error;
+            }
+            PyList_SET_ITEM(newslots, j, tmp);
+            /*
+            不允许为 __slots__ 内的类变量进行赋值，因为 __slots__ 定义的属性会使用描述器实现，
+            赋值会覆盖描述器，需要排除 __qualname__ 和 __classcell__，它们是类创建时自动生成的。
+
+                >>> class A:
+                ...     __slots__ = ('x',)
+                ...     x = 1
+                ...
+                Traceback (most recent call last):
+                File "<stdin>", line 1, in <module>
+                ValueError: 'x' in __slots__ conflicts with class variable
+            */
+            if (PyDict_GetItemWithError(dict, tmp)) {
+                /* CPython inserts __qualname__ and __classcell__ (when needed)
+                   into the namespace when creating a class.  They will be deleted
+                   below so won't act as class variables. */
+                if (!_PyUnicode_EqualToASCIIId(tmp, &PyId___qualname__) &&
+                    !_PyUnicode_EqualToASCIIId(tmp, &PyId___classcell__)) {
+                    PyErr_Format(PyExc_ValueError,
+                                 "%R in __slots__ conflicts with class variable",
+                                 tmp);
+                    Py_DECREF(newslots);
+                    goto error;
+                }
+            }
+            else if (PyErr_Occurred()) {
+                Py_DECREF(newslots);
+                goto error;
+            }
+            j++;
+        }
+        assert(j == nslots - add_dict - add_weak);
+        nslots = j;
+        Py_CLEAR(slots);
+        /* 对 newslots 进行排序 */
+        if (PyList_Sort(newslots) == -1) {
+            Py_DECREF(newslots);
+            goto error;
+        }
+        /* 然后将 newslots 转换为 tuple，覆盖 slots */
+        slots = PyList_AsTuple(newslots);
+        Py_DECREF(newslots);
+        if (slots == NULL)
+            goto error;
+
+        /* Secondary bases may provide weakrefs or dict */
+        /* 存在多个父类，并且当前父类 base 没有 __dict__，也没有添加 __dict__ 标记 */
+        if (nbases > 1 &&
+            ((may_add_dict && !add_dict) ||
+             (may_add_weak && !add_weak))) {
+            for (i = 0; i < nbases; i++) {
+                tmp = PyTuple_GET_ITEM(bases, i);
+                if (tmp == (PyObject *)base)
+                    continue; /* Skip primary base */
+                assert(PyType_Check(tmp));
+                tmptype = (PyTypeObject *)tmp;
+                /* 找到是否有可以继承 __dict__ 的父类 */
+                if (may_add_dict && !add_dict &&
+                    tmptype->tp_dictoffset != 0)
+                    add_dict++;
+                if (may_add_weak && !add_weak &&
+                    tmptype->tp_weaklistoffset != 0)
+                    add_weak++;
+                /* 找到了，就退出寻找 */
+                if (may_add_dict && !add_dict)
+                    continue;
+                if (may_add_weak && !add_weak)
+                    continue;
+                /* Nothing more to check */
+                break;
+            }
+        }
+    }
+
     /* Allocate the type object */
+    /* 调用 PyType_GenericAlloc(metatype, nslots) 分配大小为 size(metatype) + nslots + 1 的内存
+    分配对象的 heap 的布局为 PyHeapTypeObject，type 指向 PyHeapTypeObject 的第一部分 ht_type */
     type = (PyTypeObject *)metatype->tp_alloc(metatype, nslots);
     if (type == NULL)
         goto error;
 
+    /* Keep name and slots alive in the extended type object */
+    et = (PyHeapTypeObject *)type;
+    Py_INCREF(name);
+    et->ht_name = name;
+    et->ht_slots = slots;
+    slots = NULL;
+
+    /* Initialize tp_flags */
+    // All heap types need GC, since we can create a reference cycle by storing
+    // an instance on one of its parents:
+    type->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE |
+                     Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC;
+
+    /* Initialize essential fields */
+    type->tp_as_async = &et->as_async;
+    type->tp_as_number = &et->as_number;
+    type->tp_as_sequence = &et->as_sequence;
+    type->tp_as_mapping = &et->as_mapping;
+    type->tp_as_buffer = &et->as_buffer;
+    type->tp_name = PyUnicode_AsUTF8AndSize(name, &name_size);
+    if (!type->tp_name)
+        goto error;
+    if (strlen(type->tp_name) != (size_t)name_size) {
+        PyErr_SetString(PyExc_ValueError,
+                        "type name must not contain null characters");
+        goto error;
+    }
+
+    /* Set tp_base and tp_bases */
+    type->tp_bases = bases;
+    bases = NULL;
+    Py_INCREF(base);
+    type->tp_base = base;
+
     /* Initialize tp_dict from passed-in dict */
     Py_INCREF(dict);
+    /* 类体定义的类属性、方法都存如 tp_dict */
     type->tp_dict = dict;
+
+    /* Set __module__ in the dict */
+    if (_PyDict_GetItemIdWithError(dict, &PyId___module__) == NULL) {
+        if (PyErr_Occurred()) {
+            goto error;
+        }
+        /* 若命名空间没有，那么从当前 frame 的 globals()['__name__'] 获取 */
+        tmp = PyEval_GetGlobals();
+        if (tmp != NULL) {
+            tmp = _PyDict_GetItemIdWithError(tmp, &PyId___name__);
+            if (tmp != NULL) {
+                if (_PyDict_SetItemId(dict, &PyId___module__,
+                                      tmp) < 0)
+                    goto error;
+            }
+            else if (PyErr_Occurred()) {
+                goto error;
+            }
+        }
+    }
+
+    /* ns['__qualname__'] -> ht_qualname */
+    /* Set ht_qualname to dict['__qualname__'] if available, else to
+       __name__.  The __qualname__ accessor will look for ht_qualname.
+    */
+    qualname = _PyDict_GetItemIdWithError(dict, &PyId___qualname__);
+    if (qualname != NULL) {
+        if (!PyUnicode_Check(qualname)) {
+            PyErr_Format(PyExc_TypeError,
+                         "type __qualname__ must be a str, not %s",
+                         Py_TYPE(qualname)->tp_name);
+            goto error;
+        }
+    }
+    else if (PyErr_Occurred()) {
+        goto error;
+    }
+    et->ht_qualname = qualname ? qualname : et->ht_name;
+    Py_INCREF(et->ht_qualname);
+    /* 将 __qualname__ 从 __dict__ 中去掉 */
+    if (qualname != NULL && _PyDict_DelItemId(dict, &PyId___qualname__) < 0)
+        goto error;
+
+    /* ns[__doc__] -> tp_doc */
+    /* Set tp_doc to a copy of dict['__doc__'], if the latter is there
+       and is a string.  The __doc__ accessor will first look for tp_doc;
+       if that fails, it will still look into __dict__.
+    */
+    {
+        PyObject *doc = _PyDict_GetItemIdWithError(dict, &PyId___doc__);
+        if (doc != NULL && PyUnicode_Check(doc)) {
+            Py_ssize_t len;
+            const char *doc_str;
+            char *tp_doc;
+
+            doc_str = PyUnicode_AsUTF8(doc);
+            if (doc_str == NULL)
+                goto error;
+            /* Silently truncate the docstring if it contains null bytes. */
+            len = strlen(doc_str);
+            tp_doc = (char *)PyObject_MALLOC(len + 1);
+            if (tp_doc == NULL) {
+                PyErr_NoMemory();
+                goto error;
+            }
+            memcpy(tp_doc, doc_str, len + 1);
+            type->tp_doc = tp_doc;
+        }
+        else if (doc == NULL && PyErr_Occurred()) {
+            goto error;
+        }
+    }
+
+    /* 若覆盖了 __new__、__init_subclass__ 和 __class_getitem__，
+    则将其包装为 staticmethod，再放入 __dict__ */
+
+    /* Special-case __new__: if it's a plain function,
+       make it a static function */
+    tmp = _PyDict_GetItemIdWithError(dict, &PyId___new__);
+    if (tmp != NULL && PyFunction_Check(tmp)) {
+        tmp = PyStaticMethod_New(tmp);
+        if (tmp == NULL)
+            goto error;
+        if (_PyDict_SetItemId(dict, &PyId___new__, tmp) < 0) {
+            Py_DECREF(tmp);
+            goto error;
+        }
+        Py_DECREF(tmp);
+    }
+    else if (tmp == NULL && PyErr_Occurred()) {
+        goto error;
+    }
+
+    /* Special-case __init_subclass__ and __class_getitem__:
+       if they are plain functions, make them classmethods */
+    tmp = _PyDict_GetItemIdWithError(dict, &PyId___init_subclass__);
+    if (tmp != NULL && PyFunction_Check(tmp)) {
+        tmp = PyClassMethod_New(tmp);
+        if (tmp == NULL)
+            goto error;
+        if (_PyDict_SetItemId(dict, &PyId___init_subclass__, tmp) < 0) {
+            Py_DECREF(tmp);
+            goto error;
+        }
+        Py_DECREF(tmp);
+    }
+    else if (tmp == NULL && PyErr_Occurred()) {
+        goto error;
+    }
+
+    tmp = _PyDict_GetItemIdWithError(dict, &PyId___class_getitem__);
+    if (tmp != NULL && PyFunction_Check(tmp)) {
+        tmp = PyClassMethod_New(tmp);
+        if (tmp == NULL)
+            goto error;
+        if (_PyDict_SetItemId(dict, &PyId___class_getitem__, tmp) < 0) {
+            Py_DECREF(tmp);
+            goto error;
+        }
+        Py_DECREF(tmp);
+    }
+    else if (tmp == NULL && PyErr_Occurred()) {
+        goto error;
+    }
+
+    /* 为 __slots__ 添加描述器 */
+    /* Add descriptors for custom slots from __slots__, or for __dict__ */
+    mp = PyHeapType_GET_MEMBERS(et);  /* 位置在所有成员之后，类型为 PyMemberDef */
+    slotoffset = base->tp_basicsize;
+    if (et->ht_slots != NULL) {
+        for (i = 0; i < nslots; i++, mp++) {
+            mp->name = PyUnicode_AsUTF8(
+                PyTuple_GET_ITEM(et->ht_slots, i));
+            if (mp->name == NULL)
+                goto error;
+            mp->type = T_OBJECT_EX;
+            /* 计算成员的偏移地址 */
+            mp->offset = slotoffset;
+
+            /* __dict__ and __weakref__ are already filtered out */
+            assert(strcmp(mp->name, "__dict__") != 0);
+            assert(strcmp(mp->name, "__weakref__") != 0);
+
+            slotoffset += sizeof(PyObject *);
+        }
+    }
+    /* 在 slots 后添加 __dict__，指定地址偏移 tp_dictoffset */
+    if (add_dict) {
+        if (base->tp_itemsize)
+            type->tp_dictoffset = -(long)sizeof(PyObject *);
+        else
+            type->tp_dictoffset = slotoffset;
+        slotoffset += sizeof(PyObject *);
+    }
+    if (add_weak) {
+        assert(!base->tp_itemsize);
+        type->tp_weaklistoffset = slotoffset;
+        slotoffset += sizeof(PyObject *);
+    }
+    /* 设置 type 的总占用内存 */
+    type->tp_basicsize = slotoffset;
+    type->tp_itemsize = base->tp_itemsize;
+    /* 将 tp_members 指针指向对象尾部的 slots/__dict__/__weakref__ */
+    type->tp_members = PyHeapType_GET_MEMBERS(et);
+
+    /* 封装 __dict__ 和 __weakref__ 为描述器 */
+    if (type->tp_weaklistoffset && type->tp_dictoffset)
+        type->tp_getset = subtype_getsets_full;
+    else if (type->tp_weaklistoffset && !type->tp_dictoffset)
+        type->tp_getset = subtype_getsets_weakref_only;
+    else if (!type->tp_weaklistoffset && type->tp_dictoffset)
+        type->tp_getset = subtype_getsets_dict_only;
+    else
+        type->tp_getset = NULL;
+
+    /* Special case some slots */
+    if (type->tp_dictoffset != 0 || nslots > 0) {
+        if (base->tp_getattr == NULL && base->tp_getattro == NULL)
+            type->tp_getattro = PyObject_GenericGetAttr;
+        if (base->tp_setattr == NULL && base->tp_setattro == NULL)
+            type->tp_setattro = PyObject_GenericSetAttr;
+    }
+    type->tp_dealloc = subtype_dealloc;
+
+    /* Always override allocation strategy to use regular heap */
+    type->tp_alloc = PyType_GenericAlloc;
+    type->tp_free = PyObject_GC_Del;
+    type->tp_traverse = subtype_traverse;
+    type->tp_clear = subtype_clear;
+
+    /* store type in class' cell if one is supplied */
+    cell = _PyDict_GetItemIdWithError(dict, &PyId___classcell__);
+    if (cell != NULL) {
+        /* At least one method requires a reference to its defining class */
+        if (!PyCell_Check(cell)) {
+            PyErr_Format(PyExc_TypeError,
+                         "__classcell__ must be a nonlocal cell, not %.200R",
+                         Py_TYPE(cell));
+            goto error;
+        }
+        PyCell_Set(cell, (PyObject *) type);
+        if (_PyDict_DelItemId(dict, &PyId___classcell__) < 0) {
+            goto error;
+        }
+    }
+    else if (PyErr_Occurred()) {
+        goto error;
+    }
 
     /* Initialize the rest */
     if (PyType_Ready(type) < 0)
@@ -784,6 +1344,16 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 
     /* Put the proper slots in place */
     fixup_slot_dispatchers(type);
+
+    if (type->tp_dictoffset) {
+        et->ht_cached_keys = _PyDict_NewKeysForClass();
+    }
+
+    if (set_names(type) < 0)
+        goto error;
+
+    if (init_subclass(type, kwds) < 0)
+        goto error;
 
     Py_DECREF(dict);
     return (PyObject *)type;
@@ -924,3 +1494,5 @@ Python 内的 `PyObject` 大致包含两种，一种是在 C 层级实现的 `Py
     - [CPython-Internals - bytes](https://github.com/zpoint/CPython-Internals/blob/master/BasicObject/bytes/bytes_cn.md)
     - [3.8.20 Documentation - PyBytesObject](https://docs.python.org/zh-cn/3.8/c-api/bytes.html?highlight=pybytesobject#c.PyBytesObject)
     - [CPython Main - bytesobject.c](https://github.com/python/cpython/blob/main/Objects/bytesobject.c)
+
+## 附：__slots__ 机制如何使实例属性访问变快的？
