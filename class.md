@@ -1,5 +1,5 @@
 ## 什么是类和对象？
-各种面向对象编程语言中都有类的概念和支持。如在 Java 中，通过 `class` 关键字用户可自定义各种各样的类。`extends` 和 `implements` 关键字实现了面向对象的继承协议，子类可以**继承**父类的属性或方法，也可以覆盖父类的方法。同时，父类或接口的引用能够依据继承关系**动态**的调用实例的方法。`pulic`、`protected` 和 `private` 支持对类别成员进行不同访问级别的**封装**。
+各种面向对象编程语言中都有类的概念和支持。如在 Java 中，实现了一组技术来支持面向对象协议。`class` 关键字允许用户可自定义类。`extends` 和 `implements` 关键字实现类的继承，子类可以**继承**父类的属性或方法，也可以覆盖父类的方法。同时，父类或接口的引用能够依据具体实例的继承关系**动态**的调用合适的方法。`pulic`、`protected` 和 `private` 支持对类别成员进行不同访问级别的**封装**。
 ```java
 interface Animal {
     public String speak();
@@ -53,7 +53,7 @@ class Main {
     }
 }
 ```
-Python 中同样提供了对面向对象协议的支持，即也支持继承和封装，而对于多态，鉴于 Python 为弱类型动态语言，从用户视角来看，几乎所有调用都是多态的。在 Python 中，广为熟知通过 `class` 关键字可以类似 Java 那样用户自定义类，在类名紧接着的括号内可以指定要继承的类，在类的声明里可以继承或覆盖父类的成员。
+上述三个特性，几乎所有面向对象编程语言都支持，Python 同样也不例外。而对于多态，由于 Python 为弱类型的动态语言，从用户视角来看，几乎所有调用都是多态的。在 Python 中，通过 `class` 关键字可以类似 Java 那样定义类，在类名紧接着的括号内可以指定要继承的类且支持多继承，在类的声明里可以定义成员、继承或覆盖父类的成员。对于访问级别，Python 采用在成员名称的定义规则上实现：`_var` 对应 `protected` 变量、`__var` 对应到 `private` 变量、其它则为 `pulic` 变量。如下是上述案例的 Python 实现：
 ```python
 class Animal:
     def speak(self):
@@ -62,9 +62,9 @@ class Animal:
 class Felidae:
     def __init__(self, full_name):
         # 封装
-        self.__full_name = full_name
+        self._full_name = full_name
     def get_full_name(self):
-        return self.__full_name
+        return self._full_name
 
 # 继承
 class Cat(Felidae, Animal):
@@ -72,41 +72,43 @@ class Cat(Felidae, Animal):
         super(Cat, self).__init__(full_name or "Felis silvestris catus")
     # 覆盖
     def speak(self):
-        print(f"{self.get_full_name()} says:  Meow!")
+        print(f"{self.get_full_name()} says: Meow!")
 
 class Tiger(Felidae, Animal):
     def __init__(self):
         super(Tiger, self).__init__("Panthera tigris")
     def speak(self):
-        print(f"{self.get_full_name()} says:  Roar!")
+        print(f"{self.get_full_name()} says: Roar!")
 
 if __name__ == "__main__":
     cat = Cat("Kitty")
     tiger = Tiger()
     # 多态
     cat.speak()
-    # Kitty says:  Meow!
+    # Kitty says: Meow!
     tiger.speak()
-    # Panthera tigris says:  Roar!
+    # Panthera tigris says: Roar!
 ```
-到这里，似乎一切都如出一辙，仅是一些语法和形式上的差异。我们进一步输出和观察 Python 给用户暴露的类和实例，可以看到，用关键字 `class` 定义的 `Cat` 是一个 class，实例化的 `cat` 是一个 object。
-```ipython
+到这里，似乎一切都如出一辙，仅是不同编程语言语法上的差异。我们进一步输出和观察 Python 给用户暴露的类和实例，关键字 `class` 定义的 `Cat` 是一个 class，而实例化的 `cat` 是一个 object。
+```python
 >>> Cat
 <class '__main__.Cat'>
 >>> cat
 <__main__.Cat object at 0x100a75bb0>
 ```
-进一步，我们观察 Python 给用户暴露的其他接口，似乎一切开始诡异，数、字符串、函数、方法、常量以及类本身都是某种 class 的实例对象，例如 `2147483647` 是 `int` 的实例，而 `int` 是 `type` 的实例，`type` 是自身的实例。我们不直接打印实例本身是因为这些内置实例的类型都实现了相应的 `repr` 方法，直接输出无法看到想要的结果。
-```ipython
+进一步，我们观察 Python 暴露的其他接口。似乎一切开始诡异，数、字符串、函数、方法、常量以及类本身都是某种 class 的实例对象。例如 `2147483647` 是 `int` 的实例，而 `int` 是 `type` 的实例，`type` 是自身的实例。
+```python
 >>> int
 <class 'int'>
 >>> type(int)
 <class 'type'>
 >>> type(2147483647)
 <class 'int'>
+>>> type(type)
+<class 'type'>
 >>> type(3.1415926)
 <class 'float'>
->>> type("Hello, Class")
+>>> type("Hello, Python")
 <class 'str'>
 >>> type(print)
 <class 'builtin_function_or_method'>
@@ -120,12 +122,10 @@ if __name__ == "__main__":
 <class 'method-wrapper'>
 >>> super
 <class 'super'>
->>> type(type)
-<class 'type'>
 ```
-这得出一个结论，似乎 Python 向用户暴露的界面都是对象，即用户看到的所有接口都是对象，我们都可以以类似 `obj.member` 的方式使用，并且它们都具有类型属性，即 `type(obj)`。对于普通实例的类型，称之为 class，而类型实例的类型，称之为 meta class。例如，通过 `def` 或 `lambda` 定义的函数是 `function` 类型的实例，而 `function` 类型实例本身是 `type` 类型的实例，这里的 `function` 称为 class，而 `type` 称为 meta class。
+这得出一个结论，Python 向用户暴露的界面都是对象，即用户看到的所有东西都是对象，包括如数、字符串、函数、方法、类和模块等都是对象。从面向对象角度来说，对象或实例都有类型，表明它们是从哪实例化（或模板是什么），为此每个对象都可以通过 `type(obj)` 获取它们的类型；另外，我们总可以通过 `obj.member` 的方式来访问它们暴露的属性或方法。需要特殊说明的是类本身也是对象，因此也有类型，默认为 type。一般我们指类的类型为元类（meta class），其它对象的类型为类（class）。例如，通过 `def` 或 `lambda` 定义的函数对象是 `function` 类型的实例，而 `function` 类型对象本身是 `type` 类型的实例，这里的 `function` 称为 class，而 `type` 称为 meta class。
 
-为了理解一切皆对象，我们研究如下的函数 `f`，先不将 `f` 视作为函数而是一个普通的数据结构，如图结构那样，包含顶点和边成员。通过 `dir(f)` 可以看到，`f` 这种数据结构包含很多与之相关的成员，而这些成员本身也如同 `f` 一样具有相同的成员，也就是说 `f` 的数据结构和其成员的数据结构应当派生自某个父数据结构，而它们作为父数据结构的扩展，拥有独特成员。从用户和面向对象视角看，仿佛可以说，`f` 和其成员具有相同的类型，它们都继承自同一父类型，并可以覆盖父类型的成员（如不同数据结构都具有的 `__ge__` 成员在不同数据结构上具有不同的行为）以及继续扩展自己的成员。因此可以说，一切皆对象是把所有东西共有成员抽象为某一数据结构，再将其作为所有子数据结构的父数据结构，这些子数据结构可以继承或覆盖父数据结构成员，也可以继续扩展孙数据结构，继承和覆盖满足面向对象协议。那么，所有对父数据结构的操作都能运算在任意子数据结构上，如 `dir()`、`type()`、`id()` 等。
+另一个有趣的观察是，Python 的所有对象都是同一*类型*的对象。我们研究如下的函数 `f`，先不将 `f` 视作为函数而是一个普通的数据结构（如图结构那样，包含顶点集和边集成员）。通过 `dir(f)` 看到 `f` 这种数据结构包含有很多成员（这里的成员不区分属性和方法），而这些成员本身也如同 `f` 一样具有相同的成员，也就是说 `f` 的数据结构和其递归成员的数据结构应当派生自同一父数据结构，而它们作为父数据结构的扩展，拥有独特成员。从用户视角看，一切都是对象，且 `f` 和其成员在某个层面上具有相同的类型。实际中，如函数的类型是 `function`，`function` 的类型是 `type`，可以广义的说所有对象的类型都是 `type`。通常所说的类型只是第一层级的类型，如 `123` 的类型为 `int` 而不是 `type`。另外，`type` 和如 `int` 的 class 属于同一类对象。
 ```python
 >>> f = lambda: 0
 >>> dir(f)
@@ -136,9 +136,13 @@ if __name__ == "__main__":
 {'__globals__', '__get__', '__defaults__', '__name__', '__call__', '__module__', '__kwdefaults__', '__code__', '__qualname__', '__closure__', '__annotations__', '__dict__'}
 ```
 
-一切皆对象的模式带来一种有趣的特性，从实现层面来看，将所有的东西都视作为具有某种性质的数据，然后以某种方式规范数据结构来承载这些数据，并为这些数据结构提供相关的运算函数，最后再以统一的满足面向对象协议的用户界面将数据和运算暴露给用户。例如，class 在实现层面看来就是数据，包含如类名、属性、方法等字段，允许被创建、销毁等操作；function 在实现层面也是数据，包含函数名、函数体、说明文档等字段，允许被修改名字，被调用等操作。然后通过另外一个数据结构规范和承载如 class 和 function 的属性字段和操作函数，然后这个数据结构的相关操作函数提供如 `obj.member` 的用户界面向用户屏蔽不同数据结构内部的调用和处理逻辑。而如自定义的 class 或 function 则也是通过该数据结构的操作函数将用户提供的数据（属性、方法、函数）封装为这种数据结构，从而也一致兼容 `obj.member` 的用户界面。
+从实现层面来看，将所有的东西都视作为具有某种性质的数据，然后以某种方式定义数据结构 `D` 来承载这些数据，并为这些数据结构提供相关的操作函数 `F`，然后再定义另一个数据结构 `T` 将 `D` 和 `F` 封装起来，并为 `T` 提供统一的接口访问封装的 `D` 和 `F`。对应到上面提到的函数 `f`，`D` 定义了 `f` 的属性；`F` 定义了相关的操作方法；`T` 为 `f` 的类型，以统一的方式封装 `D` 和 `F` 后向外暴露接口。由于所有的对象都是按照这个逻辑实现，那么对所有对象的访问都是一致的。这里统一的接口如 `type()`、`id()` 和 `dir()` 等，其作用到具体的数据结构 `D` 上，然后从 `D` 中获得 `T`，然后调用 `T` 的相关函数实现对 `D` 访问。
 
-CPython 层面将数据模型抽象为 `PyObject` 的结构体，它是所有数据结构的父数据结构，即其它任意子数据结构指针都可以转换为这种类型指针。如下为它的定义：
+进一步可以将 `D` 和 `F` 划分为两个子集。子集的第一部分为所有类型数据结构成员的交集，第二部分为特有的成员集。这样可以将共有的部分统一增加到数据结构 `T` 上，那么等同于给所有数据结构暴露统一的接口，然后将 `T` 视作为特殊的 `D`，提供默认的接口实现。那么对于任意 `D`，其 `F` 中若提供了相应接口实现则覆盖，否则继承默认。对于子集的第二部分，可以通过定义某种协议将特有属性和方法封装起来，然后提供相应的函数去访问它们，最后在 `T` 的操作函数中统一二者便能实现统一的接口。
+
+对于 C 实现的内置对象来说，直接提供相应的 `D`、`F` 和 `T` 即可。另一类特殊的对象是 Python 层面用户自定义的 class，其中综合包含了这三部分。所需要做的是，创建 `T` 的新实例，将用户提供的成员和方法分别封装到对应的位置，这样也同其它任何对象一样支持相同的访问接口，那么就可以得到自定义类型的 class。而实例化的时候，只用封装其类型 `T` 和初始化新的实例字段，便可以得到实例 `D`。
+
+CPython 层面将数据结构 `D` 定义为 `PyObject` 的结构体，不过这里对数据结构的成员也做了抽象，而不是直接具体实现某一个 `D`。如上面提到任意数据结构 `D` 具有其类型 `T`，那么这个属性就是所有数据结构共有的，可以将其单独抽离作为所有数据结构的前缀。这样可以额外获得一个益处，即任意子数据结构指针都可以转换为这种类型指针，统一了所有 `T` 接口的输入输出数据结构类型，而将实际的类型转换下调到具体的实现中，因为 `F` 中的操作函数肯定是明确类型就是 `D`。如下为 `PyObject` 的定义：
 ```c
 /* object.h */
 #define _PyObject_HEAD_EXTRA
@@ -160,9 +164,9 @@ typedef struct {
     Py_ssize_t ob_size; /* Number of items in variable part */
 } PyVarObject;
 ```
-在 `PyObject` 中仅定义了两个字段，`ob_refcnt` 为引用计数，与垃圾回收有关；`ob_type` 为该对象的类型对象。它的定义非常简单，可以理解为 CPython 所有对象的父对象，即所有子对象都可以转换为父对象，且所有子对象拥有父对象的所有成员。而由于 `PyObject` 在分配内存后不会再进行移动或 `remalloc` 操作，这是因为移动操作会导致所有与该对象有关的指针都需要调整。那么针对如 `int`、`str` 和 `tuple` 等这种内存需求可变的类型对象，`PyVarObject` 提供 `ob_size` 字段表明可变部分的内存大小。
+作为所有数据结构的共同属性，其中仅定义了两个字段，`ob_refcnt` 为引用计数，与垃圾回收有关；`ob_type` 为该对象的类型对象。它的一个扩展 `PyVarObject`，在其基础上增加了 `ob_size` 属性表明内存需求可变数据结构的可变部分所占内存大小，这样的对象如 int、tuple、type 和 str 等。需要它的原因是由于 `PyObject` 在分配内存后不会再进行移动或 `remalloc` 操作，这是因为移动操作会导致所有与该对象有关的指针都需要调整，故直接不允许移动操作来简化系统复杂度。
 
-上面提到需要一种数据结构来规范和承载各种数据，其定义为 `PyObject`，对于如 class 和 function，它们是具有不同性质的数据，派生自 `PyObject`。可以看到 function 的数据结构在 C 层面定义为 `PyFunctionObject`，它的前缀是 `PyObject`，其中包含了如函数名称、函数体等相关的成员，这些成员同样也是 `PyObject` 类型。
+下面是数据结构 `D` 的一个具体例子，实现的是函数对象的数据结构，定义为 `PyFunctionObject`，前缀是 `PyObject`，其中包含了函数对象的特有属性，如函数名称、闭包等。而关于对应的 `F`，我们需要了解 `T` 的实现后在研究。
 ```c
 /* funcobject.h */
 typedef struct {
@@ -182,7 +186,7 @@ typedef struct {
     vectorcallfunc vectorcall;
 } PyFunctionObject;
 ```
-另外，我们提到，不同 `PyObject` 的子数据结构包含各式各样的属性和方法，为提供统一满足面向对象协议的用户界面，每个 `PyObject` 都包含有一个成员 `ob_type`，作为上面提到的另外一个数据结构来规范和承载各种数据结构的属性和方法，从而可以向外暴露统一的接口。这种数据结构在 CPython 中被定义为 `PyTypeObject`，其也是 `PyObject` 的子数据结构，它的成员如下，各字段的注释参考自：[PyTypeObject](https://docs.python.org/zh-cn/3.8/c-api/typeobj.html#c.PyTypeObject)。这种数据结构的功能是规范和承载各种非 `PyTypeObject` 的 `PyObject`，将它们的成员以统一的方式进行组织，如 `tp_methods` 和 `tp_members`，并提供相关的操作函数向外暴露统一的用户界面来访问其承载的各种 `PyObject`。
+前面提到，需要数据结构 `T` 作用是统一封装 `D` 和 `F`，并暴露统一的接口，而 `T` 本身也是特殊的 `D`，相关的 `F` 就是向外暴露的接口。它是一个 `PyObject`，定义为 `PyTypeObject`，各字段的注释参考自：[PyTypeObject](https://docs.python.org/zh-cn/3.8/c-api/typeobj.html#c.PyTypeObject)。可以看到其中包含了所有对象共有的函数接口，如 `tp_as_number`、`tp_as_sequence` 和 tp_as_mapping 等；也包含了共有的属性，如 `tp_name` 和 `tp_doc` 等。特有的属性和方法通过 `tp_methods` 和 `tp_members` 相应的协议进行封装，并有相应的函数支持访问。这里仅对 `PyTypeObject` 的作用说明，暂不对其各字段的功能做讨论，具体到运用由其它章节涉及。
 ```c
 /* cpython/object.h */
 typedef struct _typeobject {
@@ -326,7 +330,59 @@ typedef struct _typeobject {
 #endif
 } PyTypeObject;
 ```
-因此，除编译阶段外，研究 Python 执行阶段中的各种功能等于同研究 CPython 中的 `PyTypeObject` 和除 `PyTypeObject` 外的 `PyObject`。所以，类或对象就是 `PyObject`，或更广义，都是 `PyObject`。一些常见的对象实现机制，详见：[附：常见对象的实现机制](#附常见对象的实现机制)。
+了解到 `T` 的实现后，我们继续 `function` 的案例，了解 `T` 是如何封装 `D` 和 `F` 的。可以看到 `PyFunctionObject` 的类型 `PyFunction_Type` 内封装了具体关于 `PyFunctionObject` 对象的方法和属性。以 `func_repr` 的实现，其类型是 `PyFunctionObject`，即具体类型转换下调。
+```c
+PyTypeObject PyFunction_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "function",
+    sizeof(PyFunctionObject),
+    0,
+    (destructor)func_dealloc,                   /* tp_dealloc */
+    offsetof(PyFunctionObject, vectorcall),     /* tp_vectorcall_offset */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_as_async */
+    (reprfunc)func_repr,                        /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    function_call,                              /* tp_call */
+    0,                                          /* tp_str */
+    0,                                          /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+    _Py_TPFLAGS_HAVE_VECTORCALL |
+    Py_TPFLAGS_METHOD_DESCRIPTOR,               /* tp_flags */
+    func_new__doc__,                            /* tp_doc */
+    (traverseproc)func_traverse,                /* tp_traverse */
+    (inquiry)func_clear,                        /* tp_clear */
+    0,                                          /* tp_richcompare */
+    offsetof(PyFunctionObject, func_weakreflist), /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    0,                                          /* tp_methods */
+    func_memberlist,                            /* tp_members */
+    func_getsetlist,                            /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    func_descr_get,                             /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    offsetof(PyFunctionObject, func_dict),      /* tp_dictoffset */
+    0,                                          /* tp_init */
+    0,                                          /* tp_alloc */
+    func_new,                                   /* tp_new */
+};
+
+static PyObject*
+func_repr(PyFunctionObject *op)
+{
+    return PyUnicode_FromFormat("<function %U at %p>",
+                               op->func_qualname, op);
+}
+```
+在 CPython 中，几乎一切都是围绕 `PyObject` 实现的，所有的数据结构都是 `PyObject` 的扩展。因此，简单来说，对象就是 `PyObject` 的内存表示，而类（或类型）作为一种特殊的 `PyObject`，是 `PyTypeObject` 的内存表示。因此在 CPython 中，研究各种类/对象的实现等同研究不同的 `Py*Object` 和 `Py*_Type`。一些常见的对象实现机制，详见：[附：常见对象的实现机制](#附常见对象的实现机制)。
 
 ## 内置对象是如何封装成员暴露接口的？
 我们以 `tuple` 为例，研究其成员封装、接口暴露。如下可以看到 `tuple` 是一个 class，其类型为 type，其实例 `t` 的类型为 tuple，拥有和 `tuple` 相同的成员。`tuple` 在 C 层级为 `PyTypeObject` 的实例，实例名称为 `PyTuple_Type`；`t` 在 C 层级为 `PyTupleObject` 的实例。

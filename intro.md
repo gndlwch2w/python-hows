@@ -958,7 +958,7 @@ typedef struct _frame {
 >>> for name in dir(f):
 ...     if name.startswith('f_'):
 ...             print(name, getattr(f, name))
-... 
+...
 f_back None
 f_builtins {'__name__': 'builtins', ...}
 f_code <code object <module> at 0x1028157a0, file "<stdin>", line 1>
