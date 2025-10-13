@@ -5,10 +5,17 @@ import warnings
 
 CHAPTERS = (
     ('走进 CPython', 'intro.md'),
-    ('类', 'class.md'),
+    ('类与对象', 'object.md'),
     ('函数', 'func.md'),
     ('生成器', 'gen.md'),
+    ('描述器', 'desc.md'),
     ('异常', 'except.md'),
+    ('模块与包', 'module.md'),
+    ('内存管理', 'mm.md'),
+    ('垃圾回收', 'gc.md'),
+    ('线程', 'thread.md'),
+    ('协程', 'coroutine.md'),
+    ('进程', 'process.md'),
 )
 
 def extract_h2_titles(file_path):
