@@ -7,7 +7,8 @@ CHAPTERS = (
     ('走进 CPython', 'intro.md'),
     ('类', 'class.md'),
     ('函数', 'func.md'),
-    ('生成器', 'gen.md')
+    ('生成器', 'gen.md'),
+    ('异常', 'except.md'),
 )
 
 def extract_h2_titles(file_path):
