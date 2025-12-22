@@ -7,9 +7,9 @@
 
 `threading` 层面通过 `start()` 方法启动线程。线程对象内维护 `_started` 事件用于判断当前线程是否已经启动，这是一个多线程共享的变量。父线程在 `start()` 方法的最后阶段会调用 `_started.wait()`，若子线程尚未启动，则父线程会进入阻塞状态等待子线程启动完成。`_initialized` 状态用于记录线程对象是否正常创建和初始化。
 
-`threading` 模块还负责管理全局的线程对象。进入 `start()` 后，父线程会将子线程对象先存入 `_limbo` 全局变量中，表示待启动的线程。随后等待操作系统为子线程分配资源，子线程启动后将自己加入到 `_active` 全局变量中，并从 `_limbo` 中移除。`_limbo` 和 `_active` 都是全局共享变量，所有写操作都需要获取 `_active_limbo_lock` 互斥锁。
+另外，`threading` 模块还负责管理全局的线程对象。进入 `start()` 后，父线程会将子线程对象先存入 `_limbo` 全局变量中，表示待启动的线程。然后等待操作系统为子线程分配资源，然后子线程将自己加入到 `_active` 全局变量中，并从 `_limbo` 中移除。`_limbo` 和 `_active` 都属于全局共享变量，所有的写操作都需要拿到 `_active_limbo_lock` 互斥锁。
 
-`_thread` 模块中的 `_start_new_thread` 实现了子线程启动的具体逻辑，其第一个参数为子线程的执行函数。最顶层的函数定义在 `Thread._bootstrap(self)` 中，具体实现由 `Thread._bootstrap_inner(self)` 完成。这层封装采用模板方法模式，主要负责线程管理、用户代码接入和异常处理。
+`_thread` 模块中的 `_start_new_thread` 实现了子线程启动的具体逻辑，其第一个参数为子线程的执行函数，最顶层的函数定义在 `Thread._bootstrap(self)` 中，具体由 `Thread._bootstrap_inner(self)` 实现。这层封装采用模板方法模式实现，主要负责完成线程管理、用户代码接入和异常处理。
 
 线程管理即根据线程所处状态维护 `threading` 模块中的 `_limbo` 和 `_active` 全局变量。用户代码接入即在子线程中调用 `target` 函数或覆盖后的 `Thread.run()` 方法。异常处理则依据 `excepthook` 的配置来输出或处理未捕获的异常，默认由 `sys.excepthook` 实现。
 
