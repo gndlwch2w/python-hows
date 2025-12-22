@@ -7,9 +7,9 @@
 
 `threading` 层面通过 `start()` 方法启动线程。线程对象内维护 `_started` 事件用于判断当前线程是否已经启动，这是一个多线程共享的变量。父线程在 `start()` 方法的最后阶段会调用 `_started.wait()`，若子线程尚未启动，则父线程会进入阻塞状态等待子线程启动完成。`_initialized` 状态用于记录线程对象是否正常创建和初始化。
 
-另外，`threading` 模块还负责管理全局的线程对象。进入 `start()` 后，父线程会将子线程对象先存入 `_limbo` 全局变量中，表示待启动的线程。然后等待操作系统为子线程分配资源，然后子线程将自己加入到 `_active` 全局变量中，并从 `_limbo` 中移除。`_limbo` 和 `_active` 都属于全局共享变量，所有的写操作都需要拿到 `_active_limbo_lock` 互斥锁。
+`threading` 模块还负责管理全局的线程对象。进入 `start()` 后，父线程会将子线程对象先存入 `_limbo` 全局变量中，表示待启动的线程。随后等待操作系统为子线程分配资源，子线程启动后将自己加入到 `_active` 全局变量中，并从 `_limbo` 中移除。`_limbo` 和 `_active` 都是全局共享变量，所有写操作都需要获取 `_active_limbo_lock` 互斥锁。
 
-`_thread` 模块中的 `_start_new_thread` 实现了子线程启动的具体逻辑，其第一个参数为子线程的执行函数，最顶层的函数定义在 `Thread._bootstrap(self)` 中，具体由 `Thread._bootstrap_inner(self)` 实现。这层封装采用模板方法模式实现，主要负责完成线程管理、用户代码接入和异常处理。
+`_thread` 模块中的 `_start_new_thread` 实现了子线程启动的具体逻辑，其第一个参数为子线程的执行函数。最顶层的函数定义在 `Thread._bootstrap(self)` 中，具体实现由 `Thread._bootstrap_inner(self)` 完成。这层封装采用模板方法模式，主要负责线程管理、用户代码接入和异常处理。
 
 线程管理即根据线程所处状态维护 `threading` 模块中的 `_limbo` 和 `_active` 全局变量。用户代码接入即在子线程中调用 `target` 函数或覆盖后的 `Thread.run()` 方法。异常处理则依据 `excepthook` 的配置来输出或处理未捕获的异常，默认由 `sys.excepthook` 实现。
 
@@ -60,13 +60,13 @@ sequenceDiagram
     
     rect rgb(255, 240, 240)
         Bootstrap->>Bootstrap: except SystemExit:
-        Note over Bootstrap: 如是 SystemExit 则静默退出
+        Note over Bootstrap: 若为 SystemExit 则静默退出
         Bootstrap->>Bootstrap: except: 
         Bootstrap->>Bootstrap: self._invoke_excepthook(self)
         Note over Bootstrap: 调用异常钩子处理未捕获异常
         Bootstrap->>Bootstrap: finally: 
         Bootstrap->>Bootstrap: del _active[self._ident]
-        Note over Bootstrap: 从活跃字典移除清理线程信息并退出
+        Note over Bootstrap: 从活跃字典移除，清理线程信息并退出
     end
     
     deactivate Bootstrap
@@ -280,8 +280,8 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
     struct bootstate *boot;
     unsigned long ident;
     
-    // 从 tuple fargs 中解包 2 到 3 参数，分别赋值到 func, args, keyw 中
-    // "start_new_thread" 仅用作错误信息打印
+    // 从 tuple fargs 中解包 2 到 3 个参数，分别赋值到 func, args, keyw
+    // "start_new_thread" 仅用于错误信息输出
     if (!PyArg_UnpackTuple(fargs, "start_new_thread", 2, 3,
                            &func, &args, &keyw))
         return NULL;
@@ -304,7 +304,7 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
     boot = PyMem_NEW(struct bootstate, 1);
     if (boot == NULL)
         return PyErr_NoMemory();
-    // 为子线程提供父线程的 Python 解释器环境
+    // 为子线程设置 Python 解释器环境（继承自父线程）
     boot->interp = _PyInterpreterState_Get();
     boot->func = func;
     boot->args = args;
@@ -378,10 +378,10 @@ sequenceDiagram
         Note over GIL: pthread_mutex_lock(gil->mutex)
         
         loop 等待 GIL 循环
-            Note over GIL: GIL 被其他线程占用
+            Note over GIL: 若 GIL 被其他线程占用
             GIL->>GIL: while (gil_locked == 1)
             
-            Note over GIL: 请求持有者释放 GIL
+            Note over GIL: 请求当前持有者释放 GIL
             GIL->>GIL: SET_GIL_DROP_REQUEST()
             
             Note over GIL: 进入等待队列，释放 CPU
@@ -406,7 +406,7 @@ sequenceDiagram
         TBoot->>TBoot: res = PyObject_Call(boot->func, boot->args, boot->keyw)
         
         alt res == NULL (发生异常)
-            Note over TBoot: SystemExit 被静默忽略
+            Note over TBoot: SystemExit 异常被静默忽略
             TBoot->>TBoot: if (PyErr_ExceptionMatches(PyExc_SystemExit))<br/>PyErr_Clear()
         else 其他异常
             Note over TBoot: 异常传播到上层
@@ -558,5 +558,239 @@ _ready:
 
     MUTEX_UNLOCK(gil->mutex);
     errno = err;
+}
+```
+
+#### `thread_pthread` 层面实现
+
+`PyThread_start_new_thread` 是 CPython 最底层的线程创建函数，其内部主要负责封装参数，然后调用 `pthread_create` 接口创建线程。
+
+```mermaid
+sequenceDiagram
+    participant Caller as _thread.thread_PyThread_start_new_thread 函数
+    participant PST as PyThread_start_new_thread 函数
+    participant OS as 操作系统（pthread 接口）
+    participant NewThread as 子线程
+    participant Wrapper as pythread_wrapper 函数
+    participant func as 用户函数
+    
+    rect rgb(245, 255, 245)
+        Note over Caller,PST: 调用线程请求创建新线程
+        Caller->>PST: PyThread_start_new_thread(t_bootstrap, (void*) boot)
+        activate PST
+        
+        alt !initialized
+            Note over PST: 首次调用，初始化线程系统
+            PST->>PST: PyThread_init_thread()
+            Note over PST: 初始化条件变量属性
+        end
+    end
+    
+    rect rgb(245, 245, 255)
+        Note over PST: 配置线程属性（如栈大小、调度范围等）
+        
+        alt THREAD_STACK_SIZE or PTHREAD_SYSTEM_SCHED_SUPPORTED
+            PST->>OS: pthread_attr_init(&attrs)
+            OS-->>PST: attrs
+            
+            alt THREAD_STACK_SIZE defined
+                Note over PST: 获取栈大小配置
+                PST->>PST: tstate = _PyThreadState_GET()<br/>stacksize = tstate->interp->pythread_stacksize<br/>tss = stacksize ? stacksize : THREAD_STACK_SIZE
+                
+                alt tss != 0
+                    PST->>OS: pthread_attr_setstacksize(&attrs, tss)
+                    Note over OS: 设置线程栈大小
+                    
+                    alt 设置失败
+                        PST->>OS: pthread_attr_destroy(&attrs)
+                        PST-->>Caller: PYTHREAD_INVALID_THREAD_ID
+                    end
+                end
+            end
+            
+            alt PTHREAD_SYSTEM_SCHED_SUPPORTED defined
+                PST->>OS: pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM)
+                Note over OS: 设置系统级调度范围
+            end
+        end
+    end
+    
+    rect rgb(255, 255, 245)
+        Note over PST: 准备回调数据结构
+        PST->>PST: callback = PyMem_RawMalloc(sizeof(pythread_callback))
+        
+        alt callback == NULL
+            Note over PST: 内存分配失败
+            PST-->>Caller: PYTHREAD_INVALID_THREAD_ID
+        end
+        
+        Note over PST: 封装用户函数和参数
+        PST->>PST: callback->func = func<br/>callback->arg = arg
+    end
+    
+    rect rgb(255, 245, 255)
+        Note over PST,OS: 创建新线程
+        PST->>OS: pthread_create(&th, &attrs, pythread_wrapper, callback)
+        
+        alt 创建成功
+            Note over OS: 操作系统创建新线程
+            OS->>NewThread: 线程被创建并调度
+            Note over OS,NewThread: OS 调度器将新线程加入就绪队列
+            
+            OS-->>PST: status = 0
+            
+            Note over PST: 销毁线程属性对象
+            alt attrs was initialized
+                PST->>OS: pthread_attr_destroy(&attrs)
+            end
+            
+            Note over PST: 分离线程（自动回收资源）
+            PST->>OS: pthread_detach(th)
+            Note over OS: 线程结束后自动回收资源
+            
+            Note over PST: 返回线程标识符
+            PST->>PST: thread_id = (unsigned long) th
+            PST-->>Caller: thread_id
+            
+        else 创建失败
+            OS-->>PST: status != 0
+            
+            Note over PST: 清理资源
+            alt attrs was initialized
+                PST->>OS: pthread_attr_destroy(&attrs)
+            end
+            PST->>PST: PyMem_RawFree(callback)
+            
+            PST-->>Caller: PYTHREAD_INVALID_THREAD_ID
+        end
+        
+        deactivate PST
+    end
+
+    rect rgb(245, 255, 255)
+        Note over NewThread,Wrapper: OS 调度新线程执行
+        OS->>NewThread: 上下文切换到新线程
+        NewThread->>Wrapper: pythread_wrapper(callback)
+        activate Wrapper
+        
+        Note over Wrapper: 解包回调数据
+        Wrapper->>Wrapper: void (*func)(void *) = callback->func<br/>void *func_arg = callback->arg
+        
+        Note over Wrapper: 释放临时回调结构
+        Wrapper->>Wrapper: PyMem_RawFree(callback)
+    end
+    
+    rect rgb(255, 240, 240)
+        Note over Wrapper,UserFunc: 执行用户函数
+        Wrapper->>UserFunc: func(func_arg)
+        activate UserFunc
+        
+        Note over UserFunc: 用户提供的函数逻辑执行
+        UserFunc-->>Wrapper: 函数执行完成
+        deactivate UserFunc
+        
+        Wrapper-->>NewThread: return NULL
+        deactivate Wrapper
+    end
+    
+    rect rgb(245, 245, 245)
+        Note over NewThread: 线程正常退出
+        NewThread->>OS: pthread_exit(0)
+        Note over OS: 操作系统回收线程资源
+    end
+```
+
+具体代码实现如下。其中 `pthread` 是一套跨平台的线程编程接口（POSIX Threads），由不同操作系统具体实现（如 Linux 由 NPTL 实现）。相关类型包括：`pthread_t` 表示线程标识符，用作 `pthread_*` 接口的操作参数；`pthread_attr_t` 定义了线程的属性对象，如栈大小和调度范围等信息，在创建新线程时作为配置参数传递。
+
+相关函数包括：`pthread_attr_init` 和 `pthread_attr_destroy` 用于初始化和销毁 `pthread_attr_t`；`pthread_attr_set*` 系列函数用于设置相关属性；`pthread_create` 用于创建线程，需要接收线程标识符、线程配置、线程入口函数及其参数；`pthread_detach` 用于分离线程，即将线程的管理交由操作系统，线程结束后由操作系统自动回收资源。因此在 Python 中，启动线程后无需手动管理其生命周期。
+
+```c
+// Python/thread_pthread.h
+typedef struct {
+    void (*func) (void *);
+    void *arg;
+} pythread_callback;
+
+static void *
+pythread_wrapper(void *arg)
+{
+    /* copy func and func_arg and free the temporary structure */
+    pythread_callback *callback = arg;
+    void (*func)(void *) = callback->func;
+    void *func_arg = callback->arg;
+    PyMem_RawFree(arg);
+
+    func(func_arg);
+    return NULL;
+}
+
+unsigned long
+PyThread_start_new_thread(void (*func)(void *), void *arg)
+{
+    pthread_t th;
+    int status;
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+    pthread_attr_t attrs;
+#endif
+#if defined(THREAD_STACK_SIZE)
+    size_t      tss;
+#endif
+
+    dprintf(("PyThread_start_new_thread called\n"));
+    if (!initialized)
+        PyThread_init_thread();
+
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+    if (pthread_attr_init(&attrs) != 0)
+        return PYTHREAD_INVALID_THREAD_ID;
+#endif
+#if defined(THREAD_STACK_SIZE)
+    PyThreadState *tstate = _PyThreadState_GET();
+    size_t stacksize = tstate ? tstate->interp->pythread_stacksize : 0;
+    tss = (stacksize != 0) ? stacksize : THREAD_STACK_SIZE;
+    if (tss != 0) {
+        if (pthread_attr_setstacksize(&attrs, tss) != 0) {
+            pthread_attr_destroy(&attrs);
+            return PYTHREAD_INVALID_THREAD_ID;
+        }
+    }
+#endif
+#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+    pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
+#endif
+
+    pythread_callback *callback = PyMem_RawMalloc(sizeof(pythread_callback));
+
+    if (callback == NULL) {
+      return PYTHREAD_INVALID_THREAD_ID;
+    }
+
+    callback->func = func;
+    callback->arg = arg;
+
+    status = pthread_create(&th,
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+                             &attrs,
+#else
+                             (pthread_attr_t*)NULL,
+#endif
+                             pythread_wrapper, callback);
+
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+    pthread_attr_destroy(&attrs);
+#endif
+
+    if (status != 0) {
+        PyMem_RawFree(callback);
+        return PYTHREAD_INVALID_THREAD_ID;
+    }
+
+    pthread_detach(th);
+
+#if SIZEOF_PTHREAD_T <= SIZEOF_LONG
+    return (unsigned long) th;
+#else
+    return (unsigned long) *(unsigned long *) &th;
+#endif
 }
 ```
