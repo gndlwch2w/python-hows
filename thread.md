@@ -794,3 +794,274 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
 #endif
 }
 ```
+
+## 如何等待一个线程？
+
+父线程通过调用子线程对象的 `join` 方法等待该线程执行完毕或超时。`join` 方法首先验证调用的合法性，然后通过尝试获取子线程的 `_tstate_lock` 锁。若锁已被释放，说明子线程已执行完毕；否则父线程进入阻塞状态，等待子线程结束后被唤醒，或在超时后被操作系统唤醒。
+
+```mermaid
+sequenceDiagram
+    participant Caller as 父线程
+    participant ThreadObj as Thread 对象
+    participant TStateLock as _tstate_lock
+    participant WorkerThread as 子线程
+    participant CRuntime as _thread.t_bootstrap 函数
+    
+    rect rgb(245, 255, 245)
+        Note over Caller: 父线程开始等待子线程
+        Caller->>ThreadObj: t.join(timeout)
+        activate ThreadObj
+        
+        Note over ThreadObj: 参数和状态验证
+        ThreadObj->>ThreadObj: if not self._initialized:<br/>raise RuntimeError("Thread.__init__() not called")
+        ThreadObj->>ThreadObj: if not self._started.is_set():<br/>raise RuntimeError("cannot join thread before it is started")
+        ThreadObj->>ThreadObj: if self is current_thread():<br/>raise RuntimeError("cannot join current thread")
+    end
+    
+    rect rgb(245, 245, 255)
+        Note over ThreadObj: 确定等待策略
+        alt timeout is None (无限等待)
+            ThreadObj->>ThreadObj: _wait_for_tstate_lock()
+            Note over ThreadObj: block=True, timeout=-1
+        else timeout >= 0 (超时等待)
+            ThreadObj->>ThreadObj: _wait_for_tstate_lock(timeout=max(timeout, 0))
+        end
+    end
+    
+    rect rgb(255, 255, 245)
+        Note over ThreadObj,TStateLock: 尝试获取 self._tstate_lock
+        ThreadObj->>TStateLock: lock = self._tstate_lock
+        
+        alt lock is None (子线程已结束)
+            ThreadObj->>ThreadObj: assert self._is_stopped
+            ThreadObj-->>Caller: 立即返回
+        else lock exists (子线程仍在运行)
+            Note over TStateLock: 尝试获取锁
+        end
+    end
+    
+    rect rgb(255, 245, 255)
+        Note over TStateLock,WorkerThread: 子线程继续执行
+        
+        activate WorkerThread
+        WorkerThread->>WorkerThread: 执行用户代码
+        
+        Note over TStateLock: _tstate_lock 被子线程持有
+        TStateLock->>TStateLock: lock.acquire(block, timeout)
+        Note over TStateLock: 父线程在此阻塞，等待锁释放
+        
+        Note over Caller,TStateLock: 父线程进入睡眠，OS 调度其他线程运行
+    end
+    
+    rect rgb(245, 255, 255)
+        Note over WorkerThread: 工作线程即将结束
+        
+        WorkerThread->>WorkerThread: _bootstrap_inner() 执行完成
+        WorkerThread->>WorkerThread: finally: del _active[get_ident()]
+        
+        WorkerThread->>CRuntime: 线程退出清理
+        deactivate WorkerThread
+    end
+    
+    rect rgb(255, 240, 245)
+        Note over CRuntime: 线程清理和锁释放
+        
+        CRuntime->>CRuntime: PyThreadState_Clear(tstate)
+        Note over CRuntime: 清理 Python 线程状态
+        CRuntime->>CRuntime: frame, dict, curexc_*, ...
+        
+        CRuntime->>CRuntime: 从解释器状态链表移除该线程状态
+        
+        Note over CRuntime: 释放 _tstate_lock
+        CRuntime->>TStateLock: tstate_lock.release()
+        Note over TStateLock: 锁被释放，唤醒等待线程
+    end
+    
+    rect rgb(245, 255, 240)
+        Note over TStateLock,Caller: 父线程被唤醒
+        
+        TStateLock-->>ThreadObj: lock.acquire() 返回 True
+        Note over ThreadObj: 成功获取锁，表示子线程已结束
+        
+        ThreadObj->>TStateLock: lock.release()
+        
+        ThreadObj->>ThreadObj: self._stop()
+        Note over ThreadObj: 标记线程已停止，清理锁引用
+        Note over ThreadObj: self._is_stopped = True<br/>self._tstate_lock = None
+    end
+    
+    rect rgb(240, 255, 240)
+        ThreadObj-->>Caller: 返回 None
+        deactivate ThreadObj
+        
+        Note over Caller: 子线程已结束
+    end
+    
+    rect rgb(255, 245, 245)
+        Note over Caller: 超时返回场景
+        
+        alt 发生超时
+            Note over TStateLock: lock.acquire(timeout) 返回 False
+            ThreadObj-->>Caller: 返回 None（子线程仍在运行）
+            Note over Caller: 调用 thread.is_alive() 检查
+        end
+    end
+```
+
+`join` 的实现代码如下，本质上是由互斥锁进行线程间通信的一个例子。
+
+```python
+class Thread:
+    _initialized = False
+
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs=None, *, daemon=None):
+        self._tstate_lock = None
+        self._started = Event()
+        self._is_stopped = False
+        self._initialized = True
+    
+    def join(self, timeout=None):
+        """Wait until the thread terminates.
+
+        This blocks the calling thread until the thread whose join() method is
+        called terminates -- either normally or through an unhandled exception
+        or until the optional timeout occurs.
+
+        When the timeout argument is present and not None, it should be a
+        floating point number specifying a timeout for the operation in seconds
+        (or fractions thereof). As join() always returns None, you must call
+        is_alive() after join() to decide whether a timeout happened -- if the
+        thread is still alive, the join() call timed out.
+
+        When the timeout argument is not present or None, the operation will
+        block until the thread terminates.
+
+        A thread can be join()ed many times.
+
+        join() raises a RuntimeError if an attempt is made to join the current
+        thread as that would cause a deadlock. It is also an error to join() a
+        thread before it has been started and attempts to do so raises the same
+        exception.
+
+        """
+        if not self._initialized:
+            raise RuntimeError("Thread.__init__() not called")
+        if not self._started.is_set():
+            raise RuntimeError("cannot join thread before it is started")
+        if self is current_thread():
+            raise RuntimeError("cannot join current thread")
+
+        if timeout is None:
+            self._wait_for_tstate_lock()
+        else:
+            # the behavior of a negative timeout isn't documented, but
+            # historically .join(timeout=x) for x<0 has acted as if timeout=0
+            self._wait_for_tstate_lock(timeout=max(timeout, 0))
+
+    def _wait_for_tstate_lock(self, block=True, timeout=-1):
+        # Issue #18808: wait for the thread state to be gone.
+        # At the end of the thread's life, after all knowledge of the thread
+        # is removed from C data structures, C code releases our _tstate_lock.
+        # This method passes its arguments to _tstate_lock.acquire().
+        # If the lock is acquired, the C code is done, and self._stop() is
+        # called.  That sets ._is_stopped to True, and ._tstate_lock to None.
+        lock = self._tstate_lock
+        if lock is None:  # already determined that the C code is done
+            assert self._is_stopped
+        elif lock.acquire(block, timeout):
+            lock.release()
+            self._stop()
+```
+
+线程锁 `_tstate_lock` 区别于其它类型锁，能够在线程结束后自动被释放。首先 `_tstate_lock` 锁是在子线程启动时由 `_thread._set_sentinel` 创建，然后立即被子线程持有。
+
+```python
+import _thread
+
+_set_sentinel = _thread._set_sentinel
+
+class Thread:
+    def _set_tstate_lock(self):
+        """
+        Set a lock object which will be released by the interpreter when
+        the underlying thread state (see pystate.h) gets deleted.
+        """
+        self._tstate_lock = _set_sentinel()
+        self._tstate_lock.acquire()
+
+        if not self.daemon:
+            with _shutdown_locks_lock:
+                _shutdown_locks.add(self._tstate_lock)
+
+    def _bootstrap_inner(self):
+        try:
+            # 省略余下代码
+            self._set_tstate_lock()
+            # 省略余下代码
+        finally:
+            # 省略余下代码
+```
+
+然后在 `_set_sentinel()` 中，线程锁由 `newlockobject()` 创建，并弱绑定到子线程状态的 `on_delete_data` 字段，同时指定销毁时的回调函数 `on_delete` 为 `release_sentinel`。因此当线程执行结束后，`t_bootstrap` 函数调用 `PyThreadState_Clear(tstate)` 时会触发回调函数 `release_sentinel`，从而释放线程锁。
+
+```c
+// Modules/_threadmodule.c
+static PyObject *
+thread__set_sentinel(PyObject *self, PyObject *Py_UNUSED(ignored))
+{
+    PyObject *wr;
+    PyThreadState *tstate = PyThreadState_Get();
+    lockobject *lock;
+
+    if (tstate->on_delete_data != NULL) {
+        /* We must support the re-creation of the lock from a
+           fork()ed child. */
+        assert(tstate->on_delete == &release_sentinel);
+        wr = (PyObject *) tstate->on_delete_data;
+        tstate->on_delete = NULL;
+        tstate->on_delete_data = NULL;
+        Py_DECREF(wr);
+    }
+    lock = newlockobject();
+    if (lock == NULL)
+        return NULL;
+    /* The lock is owned by whoever called _set_sentinel(), but the weakref
+       hangs to the thread state. */
+    wr = PyWeakref_NewRef((PyObject *) lock, NULL);
+    if (wr == NULL) {
+        Py_DECREF(lock);
+        return NULL;
+    }
+    tstate->on_delete_data = (void *) wr;
+    tstate->on_delete = &release_sentinel;
+    return (PyObject *) lock;
+}
+```
+
+`release_sentinel` 的实现如下，其内部通过调用 `PyThread_release_lock` 释放锁。
+
+```c
+// Modules/_threadmodule.c
+static void
+release_sentinel(void *wr_raw)
+{
+    PyObject *wr = _PyObject_CAST(wr_raw);
+    /* Tricky: this function is called when the current thread state
+       is being deleted.  Therefore, only simple C code can safely
+       execute here. */
+    PyObject *obj = PyWeakref_GET_OBJECT(wr);
+    lockobject *lock;
+    if (obj != Py_None) {
+        assert(Py_TYPE(obj) == &Locktype);
+        lock = (lockobject *) obj;
+        if (lock->locked) {
+            PyThread_release_lock(lock->lock_lock);
+            lock->locked = 0;
+        }
+    }
+    /* Deallocating a weakref with a NULL callback only calls
+       PyObject_GC_Del(), which can't call any Python code. */
+    Py_DECREF(wr);
+}
+```
