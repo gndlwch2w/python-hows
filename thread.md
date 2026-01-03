@@ -1065,3 +1065,523 @@ release_sentinel(void *wr_raw)
     Py_DECREF(wr);
 }
 ```
+
+## 线程之间如何进行安全通信？
+
+如子线程启动成功后通知父线程的 `_started` 事件，由 `Event` 实现。父线程通过 `wait` 方法阻塞等待事件发生，子线程由 `set` 方法通知所有等待线程事件已发生。
+
+```python
+class Thread:
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs=None, *, daemon=None):
+        self._started = Event()
+
+    def start(self):
+        # 省略代码
+        self._started.wait()
+    
+    def _bootstrap_inner(self):
+        # 省略代码
+        self._started.set()
+```
+
+`Event` 的实现中维持了一个事件发生标记 `_flag`，值为真表示事件发生，否则未发生。另外还维持了一个条件变量 `_cond` 用于互斥访问 `_flag` 和阻塞线程。
+
+其中，`set(self)` 方法调用后标记 `_flag` 为 `True`，并通知所有阻塞在条件变量 `_cond` 中的线程事件发生。而 `wait(self, timeout)` 方法调用后，若 `_flag` 为 `True` 则直接返回，否则将当前线程阻塞到条件变量 `_cond` 的阻塞队列中等待事件发生。
+
+```python
+import _thread
+
+_allocate_lock = _thread.allocate_lock
+Lock = _allocate_lock
+
+class Event:
+    """Class implementing event objects.
+
+    Events manage a flag that can be set to true with the set() method and reset
+    to false with the clear() method. The wait() method blocks until the flag is
+    true.  The flag is initially false.
+
+    """
+
+    # After Tim Peters' event class (without is_posted())
+
+    def __init__(self):
+        self._cond = Condition(Lock())
+        self._flag = False
+
+    def _reset_internal_locks(self):
+        # private!  called by Thread._reset_internal_locks by _after_fork()
+        self._cond.__init__(Lock())
+
+    def is_set(self):
+        """Return true if and only if the internal flag is true."""
+        return self._flag
+
+    isSet = is_set
+
+    def set(self):
+        """Set the internal flag to true.
+
+        All threads waiting for it to become true are awakened. Threads
+        that call wait() once the flag is true will not block at all.
+
+        """
+        with self._cond:
+            self._flag = True
+            self._cond.notify_all()
+
+    def clear(self):
+        """Reset the internal flag to false.
+
+        Subsequently, threads calling wait() will block until set() is called to
+        set the internal flag to true again.
+
+        """
+        with self._cond:
+            self._flag = False
+
+    def wait(self, timeout=None):
+        """Block until the internal flag is true.
+
+        If the internal flag is true on entry, return immediately. Otherwise,
+        block until another thread calls set() to set the flag to true, or until
+        the optional timeout occurs.
+
+        When the timeout argument is present and not None, it should be a
+        floating point number specifying a timeout for the operation in seconds
+        (or fractions thereof).
+
+        This method returns the internal flag on exit, so it will always return
+        True except if a timeout is given and the operation times out.
+
+        """
+        with self._cond:
+            signaled = self._flag
+            if not signaled:
+                signaled = self._cond.wait(timeout)
+            return signaled
+```
+
+`Condition` 实现上述提到的互斥访问、阻塞和通知的功能。`Event` 的构建条件变量 `_cond` 传递的参数为 `Lock()`，其是一个不可重入的互斥锁，即尽管同一线程持有锁的情况下再次获取锁也会被阻塞。
+
+首先是 with 的实现，其对应到 `__enter__` 和 `__exit__` 方法，其中分别调用 `_lock` 的对应方法实现锁的获取和释放。然后是 `wait` 方法，其内部创建了一个新的个不可重入锁 `waiter`，并将其存放到队列 `_waiters` 中，然后第二次获取该锁阻塞该线程。而 `notify` 或 `notifyAll` 方法则将 `_waiters` 中存储的锁依次释放，从而唤醒阻塞进程。
+
+```python
+import _thread
+from collections import deque as _deque
+
+_allocate_lock = _thread.allocate_lock
+
+class Condition:
+    """Class that implements a condition variable.
+
+    A condition variable allows one or more threads to wait until they are
+    notified by another thread.
+
+    If the lock argument is given and not None, it must be a Lock or RLock
+    object, and it is used as the underlying lock. Otherwise, a new RLock object
+    is created and used as the underlying lock.
+
+    """
+
+    def __init__(self, lock=None):
+        if lock is None:
+            lock = RLock()
+        self._lock = lock
+        # Export the lock's acquire() and release() methods
+        self.acquire = lock.acquire
+        self.release = lock.release
+        # If the lock defines _release_save() and/or _acquire_restore(),
+        # these override the default implementations (which just call
+        # release() and acquire() on the lock).  Ditto for _is_owned().
+        try:
+            self._release_save = lock._release_save
+        except AttributeError:
+            pass
+        try:
+            self._acquire_restore = lock._acquire_restore
+        except AttributeError:
+            pass
+        try:
+            self._is_owned = lock._is_owned
+        except AttributeError:
+            pass
+        self._waiters = _deque()
+
+    def __enter__(self):
+        return self._lock.__enter__()
+
+    def __exit__(self, *args):
+        return self._lock.__exit__(*args)
+
+    def _release_save(self):
+        self._lock.release()           # No state to save
+
+    def _acquire_restore(self, x):
+        self._lock.acquire()           # Ignore saved state
+
+    def _is_owned(self):
+        # Return True if lock is owned by current_thread.
+        # This method is called only if _lock doesn't have _is_owned().
+        if self._lock.acquire(0):
+            self._lock.release()
+            return False
+        else:
+            return True
+
+    def wait(self, timeout=None):
+        """Wait until notified or until a timeout occurs.
+
+        If the calling thread has not acquired the lock when this method is
+        called, a RuntimeError is raised.
+
+        This method releases the underlying lock, and then blocks until it is
+        awakened by a notify() or notify_all() call for the same condition
+        variable in another thread, or until the optional timeout occurs. Once
+        awakened or timed out, it re-acquires the lock and returns.
+
+        When the timeout argument is present and not None, it should be a
+        floating point number specifying a timeout for the operation in seconds
+        (or fractions thereof).
+
+        When the underlying lock is an RLock, it is not released using its
+        release() method, since this may not actually unlock the lock when it
+        was acquired multiple times recursively. Instead, an internal interface
+        of the RLock class is used, which really unlocks it even when it has
+        been recursively acquired several times. Another internal interface is
+        then used to restore the recursion level when the lock is reacquired.
+
+        """
+        if not self._is_owned():
+            raise RuntimeError("cannot wait on un-acquired lock")
+        waiter = _allocate_lock()
+        waiter.acquire()
+        self._waiters.append(waiter)
+        saved_state = self._release_save()
+        gotit = False
+        try:    # restore state no matter what (e.g., KeyboardInterrupt)
+            if timeout is None:
+                waiter.acquire()
+                gotit = True
+            else:
+                if timeout > 0:
+                    gotit = waiter.acquire(True, timeout)
+                else:
+                    gotit = waiter.acquire(False)
+            return gotit
+        finally:
+            self._acquire_restore(saved_state)
+            if not gotit:
+                try:
+                    self._waiters.remove(waiter)
+                except ValueError:
+                    pass
+
+    def notify(self, n=1):
+        """Wake up one or more threads waiting on this condition, if any.
+
+        If the calling thread has not acquired the lock when this method is
+        called, a RuntimeError is raised.
+
+        This method wakes up at most n of the threads waiting for the condition
+        variable; it is a no-op if no threads are waiting.
+
+        """
+        if not self._is_owned():
+            raise RuntimeError("cannot notify on un-acquired lock")
+        all_waiters = self._waiters
+        waiters_to_notify = _deque(_islice(all_waiters, n))
+        if not waiters_to_notify:
+            return
+        for waiter in waiters_to_notify:
+            waiter.release()
+            try:
+                all_waiters.remove(waiter)
+            except ValueError:
+                pass
+
+    def notify_all(self):
+        """Wake up all threads waiting on this condition.
+
+        If the calling thread has not acquired the lock when this method
+        is called, a RuntimeError is raised.
+
+        """
+        self.notify(len(self._waiters))
+```
+
+其中，关键的实现是互斥锁，其由 `_thread` 模块提供实现，如 `_allocate_lock` 接口提供不可重入锁对象的创建。`_allocate_lock` 接口对应到 `thread_PyThread_allocate_lock` 实现，其调用 `newlockobject` 函数创建锁。
+
+其中，先创建锁对象实例 `lockobject`，然后通过 `PyThread_allocate_lock` 接口创建真正锁对象存储到 `lockobject` 的 `lock_lock` 字段，并标记锁状态 `locked` 为 `0`，最后返回 `lockobject` 实例。
+
+```c
+// Modules/_threadmodule.c
+static lockobject *
+newlockobject(void)
+{
+    lockobject *self;
+    self = PyObject_New(lockobject, &Locktype);
+    if (self == NULL)
+        return NULL;
+    self->lock_lock = PyThread_allocate_lock();
+    self->locked = 0;
+    self->in_weakreflist = NULL;
+    if (self->lock_lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(ThreadError, "can't allocate lock");
+        return NULL;
+    }
+    return self;
+}
+
+static PyObject *
+thread_PyThread_allocate_lock(PyObject *self, PyObject *Py_UNUSED(ignored))
+{
+    return (PyObject *) newlockobject();
+}
+```
+
+`lockobject` 对象的定义如下，其类型为 `Locktype`，类型方法包括获取锁 `acquire` 方法、释放锁 `release` 方法等，以及 with 的对应实现。
+
+```c
+// Modules/_threadmodule.c
+static PyMethodDef lock_methods[] = {
+    {"acquire",      (PyCFunction)(void(*)(void))lock_PyThread_acquire_lock,
+     METH_VARARGS | METH_KEYWORDS, acquire_doc},
+    {"release",      (PyCFunction)lock_PyThread_release_lock,
+     METH_NOARGS, release_doc},
+    {"__enter__",    (PyCFunction)(void(*)(void))lock_PyThread_acquire_lock,
+     METH_VARARGS | METH_KEYWORDS, acquire_doc},
+    {"__exit__",    (PyCFunction)lock_PyThread_release_lock,
+     METH_VARARGS, release_doc},
+    {NULL,           NULL}              /* sentinel */
+};
+
+static PyTypeObject Locktype = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "_thread.lock",                     /*tp_name*/
+    // 省略其余代码
+    lock_methods,                       /*tp_methods*/
+};
+
+typedef struct {
+    PyObject_HEAD
+    PyThread_type_lock lock_lock;
+    PyObject *in_weakreflist;
+    char locked; /* for sanity checking */
+} lockobject;
+```
+
+从上述可知，`lockobject` 持有 `PyThread_type_lock` 对象为真正的锁实现。其中，`PyThread_type_lock` 的真实类型为 `pthread_lock`，其维持着锁状态 `locked`，条件变量 `lock_released` 和互斥锁 `mut` 字段。在 `PyThread_allocate_lock` 中，由 `pthread` 中接口 `pthread_*_init` 创建对应锁，即线程锁也是由不同平台具体实现。
+
+```c
+// Python/thread_pthread.h
+typedef void *PyThread_type_lock;
+
+typedef struct {
+    char             locked; /* 0=unlocked, 1=locked */
+    /* a <cond, mutex> pair to handle an acquire of a locked lock */
+    pthread_cond_t   lock_released;
+    pthread_mutex_t  mut;
+} pthread_lock;
+
+int
+_PyThread_cond_init(PyCOND_T *cond)
+{
+    return pthread_cond_init(cond, condattr_monotonic);
+}
+
+PyThread_type_lock
+PyThread_allocate_lock(void)
+{
+    pthread_lock *lock;
+    int status, error = 0;
+
+    dprintf(("PyThread_allocate_lock called\n"));
+    if (!initialized)
+        PyThread_init_thread();
+
+    lock = (pthread_lock *) PyMem_RawMalloc(sizeof(pthread_lock));
+    if (lock) {
+        memset((void *)lock, '\0', sizeof(pthread_lock));
+        lock->locked = 0;
+
+        status = pthread_mutex_init(&lock->mut, NULL);
+        CHECK_STATUS_PTHREAD("pthread_mutex_init");
+        /* Mark the pthread mutex underlying a Python mutex as
+           pure happens-before.  We can't simply mark the
+           Python-level mutex as a mutex because it can be
+           acquired and released in different threads, which
+           will cause errors. */
+        _Py_ANNOTATE_PURE_HAPPENS_BEFORE_MUTEX(&lock->mut);
+
+        status = _PyThread_cond_init(&lock->lock_released);
+        CHECK_STATUS_PTHREAD("pthread_cond_init");
+
+        if (error) {
+            PyMem_RawFree((void *)lock);
+            lock = 0;
+        }
+    }
+
+    dprintf(("PyThread_allocate_lock() -> %p\n", (void *)lock));
+    return (PyThread_type_lock) lock;
+}
+```
+
+`acquire` 获取锁的实现为 `lock_PyThread_acquire_lock`，其内部调用 `acquire_timed` 函数获得锁，若返回值为 `PY_LOCK_ACQUIRED` 表明获得锁成功，返回 `True`。
+
+`acquire_timed` 封装可被打断的获得锁功能，即申请锁过程中允许被如 `KeyboardInterrupt` 信号所打断，然后能够继续申请锁逻辑。具体来说，首先由 `PyThread_acquire_lock_timed` 函数非阻塞方式申请锁，若失败（即 `PY_LOCK_FAILURE`）则以阻塞方式获取。在获取过程如被打断，则返回状态 `PY_LOCK_INTR`，那么由 `Py_MakePendingCalls` 处理异步信号处理，接着继续申请锁。
+
+```c
+static PyObject *
+lock_PyThread_acquire_lock(lockobject *self, PyObject *args, PyObject *kwds)
+{
+    _PyTime_t timeout;
+    PyLockStatus r;
+
+    if (lock_acquire_parse_args(args, kwds, &timeout) < 0)
+        return NULL;
+
+    r = acquire_timed(self->lock_lock, timeout);
+    if (r == PY_LOCK_INTR) {
+        return NULL;
+    }
+
+    if (r == PY_LOCK_ACQUIRED)
+        self->locked = 1;
+    return PyBool_FromLong(r == PY_LOCK_ACQUIRED);
+}
+
+/* Helper to acquire an interruptible lock with a timeout.  If the lock acquire
+ * is interrupted, signal handlers are run, and if they raise an exception,
+ * PY_LOCK_INTR is returned.  Otherwise, PY_LOCK_ACQUIRED or PY_LOCK_FAILURE
+ * are returned, depending on whether the lock can be acquired within the
+ * timeout.
+ */
+static PyLockStatus
+acquire_timed(PyThread_type_lock lock, _PyTime_t timeout)
+{
+    PyLockStatus r;
+    _PyTime_t endtime = 0;
+    _PyTime_t microseconds;
+
+    if (timeout > 0)
+        endtime = _PyTime_GetMonotonicClock() + timeout;
+
+    do {
+        microseconds = _PyTime_AsMicroseconds(timeout, _PyTime_ROUND_CEILING);
+
+        /* first a simple non-blocking try without releasing the GIL */
+        r = PyThread_acquire_lock_timed(lock, 0, 0);
+        if (r == PY_LOCK_FAILURE && microseconds != 0) {
+            Py_BEGIN_ALLOW_THREADS
+            r = PyThread_acquire_lock_timed(lock, microseconds, 1);
+            Py_END_ALLOW_THREADS
+        }
+
+        if (r == PY_LOCK_INTR) {
+            /* Run signal handlers if we were interrupted.  Propagate
+             * exceptions from signal handlers, such as KeyboardInterrupt, by
+             * passing up PY_LOCK_INTR.  */
+            if (Py_MakePendingCalls() < 0) {
+                return PY_LOCK_INTR;
+            }
+
+            /* If we're using a timeout, recompute the timeout after processing
+             * signals, since those can take time.  */
+            if (timeout > 0) {
+                timeout = endtime - _PyTime_GetMonotonicClock();
+
+                /* Check for negative values, since those mean block forever.
+                 */
+                if (timeout < 0) {
+                    r = PY_LOCK_FAILURE;
+                }
+            }
+        }
+    } while (r == PY_LOCK_INTR);  /* Retry if we were interrupted. */
+
+    return r;
+}
+```
+
+在 `acquire_timed` 中依赖 `PyThread_acquire_lock_timed` 获取锁。
+
+```c
+PyLockStatus
+PyThread_acquire_lock_timed(PyThread_type_lock lock, PY_TIMEOUT_T microseconds,
+                            int intr_flag)
+{
+    PyLockStatus success = PY_LOCK_FAILURE;
+    pthread_lock *thelock = (pthread_lock *)lock;
+    int status, error = 0;
+
+    dprintf(("PyThread_acquire_lock_timed(%p, %lld, %d) called\n",
+             lock, microseconds, intr_flag));
+
+    if (microseconds == 0) {
+        status = pthread_mutex_trylock( &thelock->mut );
+        if (status != EBUSY)
+            CHECK_STATUS_PTHREAD("pthread_mutex_trylock[1]");
+    }
+    else {
+        status = pthread_mutex_lock( &thelock->mut );
+        CHECK_STATUS_PTHREAD("pthread_mutex_lock[1]");
+    }
+    if (status == 0) {
+        if (thelock->locked == 0) {
+            success = PY_LOCK_ACQUIRED;
+        }
+        else if (microseconds != 0) {
+            struct timespec abs;
+            if (microseconds > 0) {
+                _PyThread_cond_after(microseconds, &abs);
+            }
+            /* continue trying until we get the lock */
+
+            /* mut must be locked by me -- part of the condition
+             * protocol */
+            while (success == PY_LOCK_FAILURE) {
+                if (microseconds > 0) {
+                    status = pthread_cond_timedwait(
+                        &thelock->lock_released,
+                        &thelock->mut, &abs);
+                    if (status == 1) {
+                        break;
+                    }
+                    if (status == ETIMEDOUT)
+                        break;
+                    CHECK_STATUS_PTHREAD("pthread_cond_timedwait");
+                }
+                else {
+                    status = pthread_cond_wait(
+                        &thelock->lock_released,
+                        &thelock->mut);
+                    CHECK_STATUS_PTHREAD("pthread_cond_wait");
+                }
+
+                if (intr_flag && status == 0 && thelock->locked) {
+                    /* We were woken up, but didn't get the lock.  We probably received
+                     * a signal.  Return PY_LOCK_INTR to allow the caller to handle
+                     * it and retry.  */
+                    success = PY_LOCK_INTR;
+                    break;
+                }
+                else if (status == 0 && !thelock->locked) {
+                    success = PY_LOCK_ACQUIRED;
+                }
+            }
+        }
+        if (success == PY_LOCK_ACQUIRED) thelock->locked = 1;
+        status = pthread_mutex_unlock( &thelock->mut );
+        CHECK_STATUS_PTHREAD("pthread_mutex_unlock[1]");
+    }
+
+    if (error) success = PY_LOCK_FAILURE;
+    dprintf(("PyThread_acquire_lock_timed(%p, %lld, %d) -> %d\n",
+             lock, microseconds, intr_flag, success));
+    return success;
+}
+```
