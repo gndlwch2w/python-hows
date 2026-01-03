@@ -36,5 +36,6 @@
 - [线程](https://github.com/gndlwch2w/python-hows/blob/main/thread.md)
     - [如何启动一个新线程？](https://github.com/gndlwch2w/python-hows/blob/main/thread.md#%E5%A6%82%E4%BD%95%E5%90%AF%E5%8A%A8%E4%B8%80%E4%B8%AA%E6%96%B0%E7%BA%BF%E7%A8%8B)
     - [如何等待一个线程？](https://github.com/gndlwch2w/python-hows/blob/main/thread.md#%E5%A6%82%E4%BD%95%E7%AD%89%E5%BE%85%E4%B8%80%E4%B8%AA%E7%BA%BF%E7%A8%8B)
+    - [线程之间如何进行安全通信？](https://github.com/gndlwch2w/python-hows/blob/main/thread.md#%E7%BA%BF%E7%A8%8B%E4%B9%8B%E9%97%B4%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E5%AE%89%E5%85%A8%E9%80%9A%E4%BF%A1)
 - [协程](https://github.com/gndlwch2w/python-hows/blob/main/coroutine.md)
 - [进程](https://github.com/gndlwch2w/python-hows/blob/main/process.md)
