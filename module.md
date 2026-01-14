@@ -983,7 +983,7 @@ class _ModuleLockManager:
         self._lock.release()
 ```
 
-具体的锁由 `_ModuleLock` 实现，其能够发现循环依赖型死锁并抛出异常。
+具体的锁由 `_ModuleLock` 实现，其能够检测循环依赖导致的死锁并抛出异常。
 
 ```python
 # A dict mapping thread ids to _ModuleLock instances
@@ -1056,8 +1056,6 @@ class _ModuleLock:
     def __repr__(self):
         return '_ModuleLock({!r}) at {}'.format(self.name, id(self))
 ```
-
-具体的锁由 `_ModuleLock` 实现，它能够检测循环依赖导致的死锁并抛出异常。
 
 `_find_and_load` 是真正实现包导入功能的入口函数，由 Python 实现。它首先获取模块锁，然后检查 `sys.modules` 缓存。若不存在，则由 `_find_and_load_unlocked` 函数进一步查找并导入。在 `_find_and_load_unlocked` 内部，首先检查父包或模块是否存在，若不存在则递归导入。若为最顶级包，则由 `_find_spec` 查找包或模块的规格说明，它会调用 `sys.meta_path` 中定义的查找器进行查找，直到找到为止或抛出异常。找到规格说明后，由 `_load_unlocked` 执行包的创建、初始化和执行。获得包后，若存在父包或模块，则将子包设置为其属性以供访问，例如 `import os.path` 执行完成后可以通过 `os.path` 进行访问。
 
