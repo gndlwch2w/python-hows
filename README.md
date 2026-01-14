@@ -31,6 +31,7 @@
     - [异常是如何被捕获和处理？](https://github.com/gndlwch2w/python-hows/blob/main/except.md#%E5%BC%82%E5%B8%B8%E6%98%AF%E5%A6%82%E4%BD%95%E8%A2%AB%E6%8D%95%E8%8E%B7%E5%92%8C%E5%A4%84%E7%90%86)
     - [内置异常是如何实现的？](https://github.com/gndlwch2w/python-hows/blob/main/except.md#%E5%86%85%E7%BD%AE%E5%BC%82%E5%B8%B8%E6%98%AF%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E7%9A%84)
 - [模块与包](https://github.com/gndlwch2w/python-hows/blob/main/module.md)
+    - [import 是如何工作的？](https://github.com/gndlwch2w/python-hows/blob/main/module.md#import-%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C%E7%9A%84)
 - [内存管理](https://github.com/gndlwch2w/python-hows/blob/main/mm.md)
 - [垃圾回收](https://github.com/gndlwch2w/python-hows/blob/main/gc.md)
 - [线程](https://github.com/gndlwch2w/python-hows/blob/main/thread.md)
