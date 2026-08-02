@@ -1,0 +1,70 @@
+exception-object = [
+    "异常对象",
+    "./exception-object.md"
+]
+
+raise-statement = [
+    "raise 语句",
+    "https://docs.python.org/zh-cn/3.15/reference/simple_stmts.html#the-raise-statement"
+]
+exception-hierarchy = [
+    "异常层次结构",
+    "https://docs.python.org/zh-cn/3.8/library/exceptions.html#exception-hierarchy"
+]
+raising-exceptions = [
+    "抛出异常",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#raising-exceptions"
+]
+
+codeobject = "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#code-objects"
+frameobject = [
+    "frame",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#frame-objects"
+]
+Py_TPFLAGS_BASE_EXC_SUBCLASS = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.Py_TPFLAGS_BASE_EXC_SUBCLASS"
+BaseException = "https://docs.python.org/zh-cn/3.15/library/exceptions.html#BaseException"
+PyThreadState = "https://docs.python.org/zh-cn/3.14/c-api/threads.html#c.PyThreadState"
+
+[OPCODE-REFERENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.8/library/dis.html#opcode-$VAR$"
+GROUPS = [
+    "RAISE_VARARGS", "SETUP_FINALLY", "POP_BLOCK", "POP_EXCEPT",
+    "END_FINALLY", "DUP_TOP", "BEGIN_FINALLY"
+]
+
+CAPI_PyType_Ready = [
+    "PyType_Ready()",
+    "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyType_Ready"
+]
+CAPI_PyErr_SetString = [
+    "PyErr_SetString()",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#c.PyErr_SetString"
+]
+CAPI_PyErr_SetObject = [
+    "PyErr_SetObject()",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#c.PyErr_SetObject"
+]
+CAPI_PyErr_Restore = [
+    "PyErr_Restore()",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#c.PyErr_Restore"
+]
+CAPI_PyErr_FormatV = [
+    "PyErr_FormatV()",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#c.PyErr_FormatV"
+]
+CAPI_PyEval_EvalFrame = [
+    "PyEval_EvalFrame()",
+    "https://docs.python.org/zh-cn/3.14/c-api/veryhigh.html#c.PyEval_EvalFrame"
+]
+CAPI_PyRun_SimpleStringFlags = [
+    "PyRun_SimpleStringFlags()",
+    "https://docs.python.org/zh-cn/3.14/c-api/veryhigh.html#c.PyRun_SimpleStringFlags"
+]
+CAPI_PyErr_Print = [
+    "PyErr_Print()",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#c.PyErr_Print"
+]
+CAPI_PyTraceBack_Here = [
+    "PyTraceBack_Here()",
+    "https://docs.python.org/zh-cn/3.14/c-api/exceptions.html#c.PyTraceBack_Here"
+]

@@ -1,0 +1,261 @@
+# 对象
+
+class-member-getset = [
+    "类对象的成员访问",
+    "./class-member-getset.md"
+]
+class-member-setattro = [
+    "类对象的成员写入",
+    "./class-member-setattro.md"
+]
+function = [
+    "函数",
+    "../object-invocation/function.md"
+]
+function-invocation = [
+    "函数调用",
+    "../object-invocation/function-invocation.md"
+]
+grammer = [
+    "语法",
+    "../get-started/grammer.md"
+]
+descr = [
+    "描述器",
+    "./descr.md"
+]
+class-creation-static = [
+    "静态类型的创建",
+    "./class-creation-static.md"
+]
+object-member-setattro = [
+    "普通对象的成员写入",
+    "./object-member-setattro.md"
+]
+callable = [
+    "可调用对象",
+    "../object-invocation/callable.md"
+]
+
+OOP = [
+    "面向对象程序设计",
+    "https://zh.wikipedia.org/wiki/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1"
+]
+static-allocation = [
+    "静态分配",
+    "https://zh.wikipedia.org/w/index.php?title=%E9%9D%99%E6%80%81%E5%8F%98%E9%87%8F&oldformat=true"
+]
+dynamic-allocation = [
+    "动态分配",
+    "https://zh.wikipedia.org/wiki/%E5%8A%A8%E6%80%81%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D"
+]
+static-types = [
+    "静态类型",
+    "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#static-types"
+]
+heap-types = [
+    "堆类型",
+    "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#heap-types"
+]
+vectorcall-protocol = [
+    "Vectorcall 协议",
+    "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#vectorcall-protocol"
+]
+supporting-cyclic-garbage-collection = [
+    "支持循环垃圾回收",
+    "https://docs.python.org/zh-cn/3.14/c-api/gcsupport.html#supporting-cyclic-garbage-collection"
+]
+method-resolution-order = [
+    "方法解析顺序",
+    "方法解析顺序（MRO）",
+    "https://docs.python.org/zh-cn/3.14/howto/mro.html#the-python-2-3-method-resolution-order"
+]
+descriptor-objects = [
+    "描述器对象",
+    "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#descriptor-objects"
+]
+type-object-structures = [
+    "类型对象结构体",
+    "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#type-object-structures"
+]
+C3-linearization = [
+    "C3线性化",
+    "https://zh.wikipedia.org/wiki/C3%E7%BA%BF%E6%80%A7%E5%8C%96"
+]
+structure-of-a-program = [
+    "代码块",
+    "https://docs.python.org/zh-cn/3/reference/executionmodel.html#structure-of-a-program"
+]
+special-method-names = [
+    "特殊方法名称",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#special-method-names"
+]
+codeobject = "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#code-objects"
+descriptor-guide = [
+    "描述器指南",
+    "https://docs.python.org/zh-cn/3.14/howto/descriptor.html#descriptor-guide"
+]
+
+PyTypeObject = "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyTypeObject"
+PyType_Type = "https://docs.pythonlang.cn/3/c-api/type.html#c.PyType_Type"
+type = [
+    "type(name, bases, ns, **kwargs)",
+    "type()",
+    "type(obj)",
+    "https://docs.python.org/zh-cn/3.14/library/functions.html#type"
+]
+PyBaseObject_Type = "https://docs.python.org/zh-cn/3.14/c-api/structures.html#c.PyBaseObject_Type"
+PyObject = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyObject"
+PyWrapperDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyWrapperDescr_Type"
+PyClassMethodDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyClassMethodDescr_Type"
+staticmethod = "https://docs.python.org/zh-cn/3.14/library/functions.html#staticmethod"
+PyMethodDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyMethodDescr_Type"
+PyMemberDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyMemberDescr_Type"
+PyGetSetDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyGetSetDescr_Type"
+__mro_entries__ = [
+    "__mro_entries__(bases)",
+    "__mro_entries__()",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#object.__mro_entries__"
+]
+preparing-the-class-namespace = [
+    "__prepare__()",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#preparing-the-class-namespace"
+]
+CO_OPTIMIZED = "https://docs.python.org/zh-cn/3.14/library/inspect.html#inspect.CO_OPTIMIZED"
+CO_NEWLOCALS = "https://docs.python.org/zh-cn/3.14/library/inspect.html#inspect.CO_NEWLOCALS"
+frameobject = [
+    "frame",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#frame-objects"
+]
+cell-objects = [
+    "Cell 对象",
+    "https://docs.python.org/zh-cn/3.14/c-api/cell.html#cell-objects"
+]
+JavaBeans = "https://zh.wikipedia.org/zh-cn/JavaBeans"
+
+PyMethodDef = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyMethodDef"
+PyCFunction = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyCFunction"
+METH_CLASS = "https://docs.pythonlang.cn/3/c-api/structures.html#c.METH_CLASS"
+METH_VARARGS = "https://docs.pythonlang.cn/3/c-api/structures.html#c.METH_VARARGS"
+METH_NOARGS = "https://docs.pythonlang.cn/3/c-api/structures.html#c.METH_NOARGS"
+METH_O = "https://docs.pythonlang.cn/3/c-api/structures.html#c.METH_O"
+PyGetSetDef = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyGetSetDef"
+PyMemberDef = "https://docs.python.org/zh-cn/3.14/c-api/structures.html#c.PyMemberDef"
+
+[OPCODE_REFERENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.14/library/dis.html#opcode-$VAR$"
+GROUPS = [
+    "LOAD_BUILD_CLASS", "MAKE_FUNCTION", "CALL_FUNCTION_KW", 
+    "STORE_NAME", "LOAD_CLOSURE"
+]
+LOAD-STORE_NAME = ["LOAD/STORE_NAME", "$VAR_LOAD_NAME"]
+LOAD-STORE_ATTR = ["LOAD/STORE_ATTR", "$VAR_LOAD_ATTR"]
+
+[PyTypeObject_SLOT_REFRENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.PyTypeObject.$VAR$"
+GROUPS = [
+    "tp_name", "tp_basicsize", "tp_itemsize", "tp_dealloc", "tp_vectorcall_offset", 
+    "tp_getattr", "tp_setattr", "tp_as_async", "tp_repr", "tp_as_number", 
+    "tp_as_sequence", "tp_as_mapping", "tp_hash", "tp_call", "tp_str", "tp_getattro", 
+    "tp_setattro", "tp_as_buffer", "tp_flags", "tp_doc", "tp_traverse", "tp_clear", 
+    "tp_richcompare", "tp_weaklistoffset", "tp_iter", "tp_iternext", "tp_methods", 
+    "tp_members", "tp_getset", "tp_base", "tp_dict", "tp_descr_get", "tp_descr_set", 
+    "tp_dictoffset", "tp_init", "tp_alloc", "tp_new", "tp_free", "tp_is_gc", "tp_bases", 
+    "tp_mro", "tp_cache", "tp_subclasses", "tp_weaklist", "tp_del", "tp_version_tag", 
+    "tp_finalize", "tp_vectorcall"
+]
+
+mp_subscript = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.PyMappingMethods.mp_subscript"
+sq_item = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.PySequenceMethods.sq_item"
+nb_add = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.PyNumberMethods.nb_add"
+sq_ass_item = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.PySequenceMethods.sq_ass_item"
+
+[PyTypeObject_FLAGS_REFRENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.14/c-api/typeobj.html#c.$VAR$"
+GROUPS = [
+    "Py_TPFLAGS_DEFAULT", "Py_TPFLAGS_HAVE_STACKLESS_EXTENSION", "Py_TPFLAGS_HAVE_VERSION_TAG", 
+    "Py_TPFLAGS_HAVE_GC", "Py_TPFLAGS_HAVE_FINALIZE", "Py_TPFLAGS_HAVE_VECTORCALL", 
+    "Py_TPFLAGS_HEAPTYPE", "Py_TPFLAGS_READY", "Py_TPFLAGS_READYING", 
+    "Py_TPFLAGS_VALID_VERSION_TAG", "Py_TPFLAGS_BASETYPE", "Py_TPFLAGS_METHOD_DESCRIPTOR"
+]
+
+[OBJECT_API_REFERENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#object.$VAR$"
+__repr__ = ["__repr__()", "$VAR___repr__"]
+__str__ = ["__str__()", "$VAR___str__"]
+__hash__ = ["__hash__()", "$VAR___hash__"]
+__eq__ = ["__eq__()", "$VAR___eq__"]
+__init__ = ["__init__()", "$VAR___init__"]
+__new__ = ["__new__()", "$VAR___new__"]
+__add__ = ["__add__()", "$VAR___add__"]
+__radd__ = ["__radd__()", "$VAR___radd__"]
+__call__ = ["__call__()", "$VAR___call__"]
+__slots__ = ["__slots__", "$VAR___slots__"]
+__getitem__ = ["__getitem__()", "$VAR___getitem__"]
+__set_name__ = ["__set_name__(cls, name)", "__set_name__()", "$VAR___set_name__"]
+__init_subclass__ = ["__init_subclass__(cls, **kwargs)", "$VAR___init_subclass__"]
+__get__ = ["__get__(obj, objtype=None)", "__get__()", "__get__(obj, objtype)", "$VAR___get__"]
+__set__ = ["__set__(obj, value)", "__set__()", "$VAR___set__"]
+__delete__ = ["__delete__(obj)", "__delete__()", "$VAR___delete__"]
+__setitem__ = ["__setitem__()", "$VAR___setitem__"]
+__delitem__ = ["__delitem__()", "$VAR___delitem__"]
+__next__ = ["__next__()", "$VAR___next__"]
+
+[PEP_REFERENCES]
+TEMPLATE = "https://peps.pythonlang.cn/pep-$VAR$/"
+PEP-560 = ["PEP 560", "$VAR_0560"]
+
+CAPI_PyType_FromSpec = [
+    "PyType_FromSpec()",
+    "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyType_FromSpec"
+]
+CAPI_PyType_Ready = [
+    "PyType_Ready()",
+    "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyType_Ready"
+]
+CAPI_PyType_Modified = [
+    "PyType_Modified()",
+    "PyType_Modified(&PyBaseObject_Type)",
+    "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyType_Modified"
+]
+CAPI_PyType_FastSubclass = [
+    "PyType_FastSubclass()",
+    "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyType_FastSubclass"
+]
+CAPI_PyObject_GC_Del = [
+    "PyObject_GC_Del()",
+    "https://docs.python.org/zh-cn/3.14/c-api/gcsupport.html#c.PyObject_GC_Del"
+]
+CAPI_PyEval_EvalCodeEx = [
+    "PyEval_EvalCodeEx()",
+    "https://docs.python.org/zh-cn/3.14/c-api/veryhigh.html#c.PyEval_EvalCodeEx"
+]
+CAPI_PyType_GenericAlloc = [
+    "PyType_GenericAlloc()",
+    "https://docs.python.org/zh-cn/3.14/c-api/type.html#c.PyType_GenericAlloc"
+]
+CAPI_PyObject_GetAttr = [
+    "PyObject_GetAttr()",
+    "https://docs.python.org/zh-cn/3.14/c-api/object.html#c.PyObject_GetAttr"
+]
+CAPI_PyObject_SetAttr = [
+    "PyObject_SetAttr()",
+    "https://docs.python.org/zh-cn/3.14/c-api/object.html#c.PyObject_SetAttr"
+]
+CAPI_PyObject_Get-SetAttr = [
+    "PyObject_Get/SetAttr()",
+    "https://docs.python.org/zh-cn/3.14/c-api/object.html#c.PyObject_GetAttr"
+]
+
+
+# - 类
+#   - 创建
+#     - 静态类型
+#     - 堆类型
+#   - 成员访问
+
+# - 实例
+#   - 实例化
+#   - 成员访问
+
+# - 描述器

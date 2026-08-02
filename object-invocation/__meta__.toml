@@ -1,0 +1,219 @@
+# internal references
+function-creation = [
+    "创建函数",
+    "./function-creation.md"
+]
+function-invocation = [
+    "调用函数",
+    "./function-invocation.md"
+]
+object-member-getset = [
+    "普通对象的成员访问",
+    "../object-oriented-system/object-member-getset.md"
+]
+class-member-getattro = [
+    "类对象的成员读取",
+    "../object-oriented-system/class-member-getattro.md"
+]
+
+# external references
+BNF = "https://zh.wikipedia.org/wiki/%E5%B7%B4%E7%A7%91%E6%96%AF%E8%8C%83%E5%BC%8F"
+grammar = [
+    "完整的语法规范",
+    "https://docs.python.org/zh-cn/3.8/reference/grammar.html"
+]
+CST = "https://zh.wikipedia.org/wiki/%E5%88%86%E6%9E%90%E6%A0%91"
+AST = "https://zh.wikipedia.org/wiki/%E6%8A%BD%E8%B1%A1%E8%AA%9E%E6%B3%95%E6%A8%B9"
+LL_k = [
+    "LL(1)",
+    "https://zh.wikipedia.org/wiki/LL%E5%89%96%E6%9E%90%E5%99%A8"
+]
+inline_function = [
+    "内联函数",
+    "https://zh.wikipedia.org/wiki/%E5%86%85%E8%81%94%E5%87%BD%E6%95%B0"
+]
+
+# object references
+codeobject = "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#code-objects"
+PyFunctionObject = "https://docs.python.org/zh-cn/3.14/c-api/function.html#c.PyFunctionObject"
+PyFunction_Type = "https://docs.python.org/zh-cn/3.14/c-api/function.html#c.PyFunction_Type"
+vectorcall = [
+    "Vectorcall 协议",
+    "https://docs.pythonlang.cn/3/c-api/call.html#the-vectorcall-protocol"
+]
+tp_call = [
+    "tp_call 协议",
+    "https://docs.python.org/zh-cn/3/c-api/call.html#the-tp-call-protocol"
+]
+frameobject = [
+    "frame",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#frame-objects"
+]
+PyFrameObject = "https://docs.python.org/zh-cn/3.14/c-api/frame.html#c.PyFrameObject"
+PyCellObject = "https://docs.python.org/zh-cn/3.14/c-api/cell.html#c.PyCellObject"
+PyInterpreterState = "https://docs.python.org/zh-cn/3.14/c-api/subinterpreters.html#c.PyInterpreterState"
+naming-and-binding = [
+    "命名与绑定",
+    "https://docs.python.org/zh-cn/3/reference/executionmodel.html#naming-and-binding"
+]
+codeblock = [
+    "代码块",
+    "https://docs.python.org/zh-cn/3/reference/executionmodel.html#structure-of-a-program"
+]
+PyCFunction = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyCFunction"
+PyObject = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyObject"
+PyMethodDef = "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyMethodDef"
+PyClassMethodDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyClassMethodDescr_Type"
+staticmethod = "https://docs.python.org/zh-cn/3.14/library/functions.html#staticmethod"
+PyMethodDescr_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyMethodDescr_Type"
+PyCFunction_Type = "https://docs.python.org/zh-cn/3.14/c-api/structures.html#c.PyCFunction_Type"
+PyStaticMethod_Type = "https://docs.python.org/zh-cn/3.14/c-api/descriptor.html#c.PyStaticMethod_Type"
+PyGenObject = "https://docs.python.org/zh-cn/3.14/c-api/gen.html#c.PyGenObject"
+PyGen_Type = "https://docs.python.org/zh-cn/3.14/c-api/gen.html#c.PyGen_Type"
+PyThreadState = "https://docs.python.org/zh-cn/3.14/c-api/threads.html#c.PyThreadState"
+
+[PEP_REFERENCES]
+TEMPLATE = "https://peps.pythonlang.cn/pep-$VAR$/"
+PEP-590 = ["PEP 590", "$VAR_590"]
+PEP-318 = ["PEP 318", "$VAR_318"]
+PEP-255 = ["PEP 255", "$VAR_255"]
+PEP-380 = ["PEP 380", "$VAR_380"]     # 委派子生成器的语法
+PEP-3156 = ["PEP 3156", "$VAR_3156"]  # asyncio
+PEP-492 = ["PEP 492", "$VAR_492"]     # async/await
+
+# slot references
+slot_co_flags = [
+    "co_flags",
+    "代码对象位标志",
+    "https://docs.python.org/zh-cn/3.8/library/inspect.html#code-objects-bit-flags"
+]
+slot_tp_call = [
+    "tp_call",
+    "https://docs.python.org/zh-cn/3/c-api/typeobj.html#c.PyTypeObject.tp_call"
+]
+slot_tp_vectorcall_offset = [
+    "tp_vectorcall_offset",
+    "https://docs.python.org/zh-cn/3/c-api/typeobj.html#c.PyTypeObject.tp_vectorcall_offset"
+]
+slot_tp_descr_get = [
+    "tp_descr_get",
+    "https://docs.python.org/zh-cn/3/c-api/typeobj.html#c.PyTypeObject.tp_descr_get"
+]
+slot_tp_methods = [
+    "tp_methods",
+    "https://docs.python.org/zh-cn/3/c-api/typeobj.html#c.PyTypeObject.tp_methods"
+]
+
+[OBJECT_API_REFERENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#object.$VAR$"
+__get__ = ["__get__(obj, objtype)", "$VAR___get__"]
+
+# flag references
+Py_TPFLAGS_HAVE_VECTORCALL = [
+    "_Py_TPFLAGS_HAVE_VECTORCALL",
+    "https://docs.pythonlang.cn/3/c-api/typeobj.html#c.Py_TPFLAGS_HAVE_VECTORCALL"
+]
+PY_VECTORCALL_ARGUMENTS_OFFSET = "https://docs.python.org/zh-cn/3.8/c-api/object.html?highlight=py_vectorcall_arguments_offset#c.PY_VECTORCALL_ARGUMENTS_OFFSET"
+
+[CODEOBJECT_FLAGS]
+TEMPLATE = "https://docs.python.org/zh-cn/3.8/library/inspect.html#inspect.$VAR$"
+GROUPS = [
+    "CO_OPTIMIZED", "CO_NEWLOCALS", "CO_NOFREE", "CO_VARKEYWORDS", "CO_VARARGS"
+]
+
+[METHOD_FLAGS]
+TEMPLATE = "https://docs.pythonlang.cn/3/c-api/structures.html#c.$VAR$"
+GROUPS = [
+    "METH_NOARGS", "METH_O", "METH_VARARGS", "METH_KEYWORDS", "METH_FASTCALL"
+]
+
+# opcode references
+[OPCODE_REFERENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.8/library/dis.html#opcode-$VAR$"
+GROUPS = [
+    "MAKE_FUNCTION", "BUILD_CONST_KEY_MAP", "LOAD_CONST", "LOAD_NAME", 
+    "CALL_FUNCTION_KW", "RETURN_VALUE",  "COMPARE_OP", "POP_JUMP_IF_FALSE",
+    "LOAD_GLOBAL", "YIELD_VALUE", "STORE_FAST", "YIELD_FROM",
+    "GET_YIELD_FROM_ITER"
+]
+LOAD-STORE_NAME = [
+    "LOAD/STORE_NAME", 
+    "$VAR_LOAD_NAME"
+]
+CALL_FUNCTION = [
+    "CALL_FUNCTION",
+    "CALL_FUNCTION[_KW]",
+    "$VAR_CALL_FUNCTION"
+]
+LOAD-STORE_FAST = [
+    "LOAD/STORE_FAST", 
+    "$VAR_LOAD_FAST"
+]
+LOAD-STORE_DEREF = [
+    "LOAD/STORE_DEREF",
+    "$VAR_LOAD_DEREF"
+]
+
+CAPI_PyFunction_NewWithQualName = [
+    "PyFunction_NewWithQualName()",
+    "https://docs.python.org/zh-cn/3.14/c-api/function.html#c.PyFunction_NewWithQualName"
+]
+CAPI_PyObject_Vectorcall = [
+    "_PyObject_Vectorcall()",
+    "https://docs.python.org/zh-cn/3.14/c-api/call.html#c.PyObject_Vectorcall"
+]
+CAPI_PyVectorcall_NARGS = [
+    "PyVectorcall_NARGS()",
+    "https://docs.python.org/zh-cn/3/c-api/call.html#c.PyVectorcall_NARGS"
+]
+CAPI_PyEval_EvalCode = [
+    "PyEval_EvalCode()",
+    "https://docs.python.org/zh-cn/3.14/c-api/veryhigh.html#c.PyEval_EvalCode"
+]
+CAPI_PyEval_EvalCodeEx = [
+    "PyEval_EvalCodeEx()",
+    "https://docs.python.org/zh-cn/3.14/c-api/veryhigh.html#c.PyEval_EvalCodeEx",
+]
+CAPI_PyEval_EvalFrameEx = [
+    "PyEval_EvalFrameEx()",
+    "https://docs.python.org/zh-cn/3.14/c-api/veryhigh.html#c.PyEval_EvalFrameEx"
+]
+CAPI_PyFrame_New = [
+    "PyFrame_New()",
+    "https://docs.python.org/zh-cn/3.14/c-api/frame.html#c.PyFrame_New"
+]
+CAPI_PyFrame_FastToLocals = [
+    "PyFrame_FastToLocals()",
+    "https://docs.python.org/zh-cn/3.14/c-api/frame.html#c.PyFrame_FastToLocals"
+]
+CAPI_PyCFunction_NewEx = [
+    "PyCFunction_NewEx(ml, self, module=None)",
+    "PyCFunction_NewEx()",
+    "https://docs.pythonlang.cn/3/c-api/structures.html#c.PyCFunction_NewEx"
+]
+
+
+# 对象调用
+
+# - 函数
+#   - 定义
+#   - 执行
+#   - 作用域
+#   - 装饰器
+#   - 方法 (PyMethod_Type (bound method))
+
+# - 广义函数
+#   - 可调用对象
+#     - tp_call
+#     - __call__
+#   - verctorcall
+
+# - C 函数
+#   - PyCFunction_Type (built-in function/method)
+#   - _PyMethodWrapper_Type (method-wrapper)
+
+#   - PyMethodDescr_Type (method_descriptor)
+#   - PyClassMethodDescr_Type (classmethod_descriptor)
+#   - PyWrapperDescr_Type (wrapper_descriptor)
+
+# - 协程

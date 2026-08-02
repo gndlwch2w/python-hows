@@ -1,0 +1,61 @@
+{
+  "name": "markdown-meta-links",
+  "displayName": "Markdown Meta Links",
+  "description": "Resolve @@key@@ references in VS Code Markdown Preview from a same-directory __meta__.toml file.",
+  "version": "0.3.0",
+  "publisher": "gndlwch2w",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "preview",
+    "toml",
+    "links",
+    "documentation"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onCommand:markdownMetaLinks.reloadMeta",
+    "onCommand:markdownMetaLinks.exportResolvedMarkdown"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "commands": [
+      {
+        "command": "markdownMetaLinks.reloadMeta",
+        "title": "Markdown Meta Links: Reload __meta__.toml"
+      },
+      {
+        "command": "markdownMetaLinks.exportResolvedMarkdown",
+        "title": "Markdown Meta Links: Export Resolved Markdown"
+      }
+    ],
+    "configuration": {
+      "title": "Markdown Meta Links",
+      "properties": {
+        "markdownMetaLinks.metaFileName": {
+          "type": "string",
+          "default": "__meta__.toml",
+          "description": "Meta file name to read beside each Markdown file."
+        },
+        "markdownMetaLinks.searchParentDirectories": {
+          "type": "boolean",
+          "default": false,
+          "description": "Search parent directories for the meta file when it is not found beside the Markdown file. By default only the same directory is used."
+        },
+        "markdownMetaLinks.unresolvedBehavior": {
+          "type": "string",
+          "enum": ["keep", "plain"],
+          "default": "keep",
+          "description": "How unresolved @@key@@ references are displayed. keep: keep the original marker. plain: display only the key text."
+        }
+      }
+    }
+  }
+}

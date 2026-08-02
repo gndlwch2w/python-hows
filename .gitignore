@@ -1,3 +1,4 @@
 .vscode/
 .DS_Store
 **/.DS_Store
+**/.__meta__.dy.toml
