@@ -1,0 +1,15 @@
+module-tutorial = [
+    "模块",
+    "https://docs.python.org/zh-cn/3.14/tutorial/modules.html#modules"
+]
+
+[CAPI_module]
+template = "https://docs.python.org/zh-cn/3.14/c-api/module.html#c.$VAR$"
+GROUPS = ["PyModule_Type", "PyModuleDef"]
+CAPI_PyModule_Create = ["PyModule_Create()", "$VAR_PyModule_Create"]
+CAPI_PyModule_New = ["PyModule_New()", "$VAR_PyModule_New"]
+
+frameobject = [
+    "frame",
+    "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#frame-objects"
+]
