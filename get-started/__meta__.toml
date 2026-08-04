@@ -1,0 +1,25 @@
+grammar = [
+    "完整的语法规范",
+    "https://docs.python.org/zh-cn/3.8/reference/grammar.html"
+]
+compiler-principle = [
+    "编译原理",
+    "https://zh.wikipedia.org/wiki/%E7%BC%96%E8%AF%91%E5%8E%9F%E7%90%86_(%E6%95%99%E6%9D%90)"
+]
+EBNF = [
+    "扩展巴科斯范式",
+    "https://zh.wikipedia.org/wiki/%E6%89%A9%E5%B1%95%E5%B7%B4%E7%A7%91%E6%96%AF%E8%8C%83%E5%BC%8F"
+]
+codeobject = "https://docs.python.org/zh-cn/3.14/reference/datamodel.html#code-objects"
+
+# opcode references
+[OPCODE_REFERENCES]
+TEMPLATE = "https://docs.python.org/zh-cn/3.8/library/dis.html#opcode-$VAR$"
+LOAD-STORE_FAST = [
+    "LOAD/STORE_FAST", 
+    "$VAR_LOAD_FAST"
+]
+LOAD-STORE_GLOBAL = [
+    "LOAD/STORE_GLOBAL", 
+    "$VAR_LOAD_GLOBAL"
+]
