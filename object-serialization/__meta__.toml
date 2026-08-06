@@ -1,0 +1,8 @@
+json = [
+    "JSON (JavaScript Object Notation)",
+    "https://www.json.org/json-zh.html"
+]
+json-python = [
+    "JSON 编码和解码器",
+    "https://docs.python.org/zh-cn/3.8/library/json.html"
+]
