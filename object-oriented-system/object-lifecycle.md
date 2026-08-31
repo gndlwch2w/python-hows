@@ -325,6 +325,16 @@ object_dealloc(PyObject *self)
 {
     Py_TYPE(self)->tp_free(self);
 }
+
+// Include/objimpl.h#PyObject_Del
+#define PyObject_Del            PyObject_Free
+
+// Objects/obmalloc.c#PyObject_Free
+void
+PyObject_Free(void *ptr)
+{
+    _PyObject.free(_PyObject.ctx, ptr);
+}
 ```
 
 * 上述中对 @@tp_finalize@@ 的调用不同于调用其它槽那么直接，主要因为 @@__del__@@ 内被设计允许执行任意的用户代码，
@@ -809,7 +819,7 @@ handle_callback(PyWeakReference *ref, PyObject *callback)
 }
 ```
 
-* 对于堆类型而言，除弱引用外，还需释放如 \_\_slots__ 为对象扩展的 PyObject 成员和实例字典 \_\_dict__ 的强引用。然后调用上层 @@tp_dealloc@@ 继续销毁对象，调用前需重新由 GC 追踪对象以便上层析构时知道该对象属于 GC 类型。倘若当前处于最堆类型的最顶层析构函数，类似非 GC 类型那样需释放对其类型的强引用。
+* 对于堆类型而言，除弱引用外，还需释放如 \_\_slots__ 为对象扩展的 PyObject 成员和实例字典 \_\_dict__ 的强引用。然后调用上层 @@tp_dealloc@@ 继续销毁对象，调用前需重新由 GC 追踪对象以便上层析构时知道该对象属于 GC 类型。对于 GC 类型，也同样由 object 的 @@tp_dealloc@@ 调用类型的 @@tp_free@@ 释放对象内存，其一般实现为 @@CAPI_PyObject_GC_Del@@，其中会先将对象从 GC 追踪链中摘除，再将第 *0* 代对象计数减 *1*，最后才释放对象内存。倘若当前处于最堆类型的最顶层析构函数，类似非 GC 类型那样需释放对其类型的强引用。
 
 ```c
 // Objects/typeobject.c#subtype_dealloc
@@ -881,6 +891,21 @@ clear_slots(PyTypeObject *type, PyObject *self)
             }
         }
     }
+}
+
+// Modules/gcmodule.c#PyObject_GC_Del
+void
+PyObject_GC_Del(void *op)
+{
+    PyGC_Head *g = AS_GC(op);
+    if (_PyObject_GC_IS_TRACKED(op)) {  // 从 gc 链上移除
+        gc_list_remove(g);
+    }
+    struct _gc_runtime_state *state = &_PyRuntime.gc;
+    if (state->generations[0].count > 0) {
+        state->generations[0].count--;
+    }
+    PyObject_FREE(g);
 }
 ```
 
