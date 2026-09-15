@@ -146,7 +146,7 @@ PyMemberDef = "https://docs.python.org/zh-cn/3.14/c-api/structures.html#c.PyMemb
 TEMPLATE = "https://docs.python.org/zh-cn/3.14/library/dis.html#opcode-$VAR$"
 GROUPS = [
     "LOAD_BUILD_CLASS", "MAKE_FUNCTION", "CALL_FUNCTION_KW", 
-    "STORE_NAME", "LOAD_CLOSURE"
+    "STORE_NAME", "LOAD_CLOSURE", "LOAD_NAME", "STORE_NAME"
 ]
 LOAD-STORE_NAME = ["LOAD/STORE_NAME", "$VAR_LOAD_NAME"]
 LOAD-STORE_ATTR = ["LOAD/STORE_ATTR", "$VAR_LOAD_ATTR"]
@@ -200,10 +200,16 @@ __delete__ = ["__delete__(obj)", "__delete__()", "$VAR___delete__"]
 __setitem__ = ["__setitem__()", "$VAR___setitem__"]
 __delitem__ = ["__delitem__()", "$VAR___delitem__"]
 __next__ = ["__next__()", "$VAR___next__"]
+__del__ = ["__del__()", "$VAR___del__"]
 
 [PEP_REFERENCES]
 TEMPLATE = "https://peps.pythonlang.cn/pep-$VAR$/"
 PEP-560 = ["PEP 560", "$VAR_0560"]
+
+PyAPI_gc_collect = [
+    "gc.collect()",
+    "https://docs.python.org/zh-cn/3.14/library/gc.html#gc.collect"
+]
 
 CAPI_PyType_FromSpec = [
     "PyType_FromSpec()",
@@ -246,16 +252,51 @@ CAPI_PyObject_Get-SetAttr = [
     "PyObject_Get/SetAttr()",
     "https://docs.python.org/zh-cn/3.14/c-api/object.html#c.PyObject_GetAttr"
 ]
+CAPI_PyObject_GC_Track = [
+    "PyObject_GC_Track()",
+    "https://docs.python.org/zh-cn/3.14/c-api/gcsupport.html#c.PyObject_GC_Track"
+]
 
+# object-lifecycle #
+lifecycle-events = [
+    "生命周期事件",
+    "https://docs.python.org/zh-cn/3.14/c-api/lifecycle.html"
+]
+CAPI_PyObject_CallFinalizerFromDealloc = [
+    "PyObject_CallFinalizerFromDealloc()",
+    "https://docs.python.org/zh-cn/3.14/c-api/lifecycle.html#c.PyObject_CallFinalizerFromDealloc"
+]
+CAPI_PyObject_ClearWeakRefs = [
+    "PyObject_ClearWeakRefs()",
+    "https://docs.python.org/zh-cn/3.14/c-api/weakref.html#c.PyObject_ClearWeakRefs"
+]
 
-# - 类
-#   - 创建
-#     - 静态类型
-#     - 堆类型
-#   - 成员访问
-
-# - 实例
-#   - 实例化
-#   - 成员访问
-
-# - 描述器
+# object-lifecycle-refcnt #
+CAPI_Py_INCREF = [
+    "Py_INCREF()",
+    "https://docs.python.org/zh-cn/3.14/c-api/refcounting.html#c.Py_INCREF"
+]
+CAPI_Py_DECREF = [
+    "Py_DECREF()",
+    "https://docs.python.org/zh-cn/3.14/c-api/refcounting.html#c.Py_DECREF"
+]
+CAPI_PyDict_GetItemWithError = [
+    "PyDict_GetItemWithError()",
+    "https://docs.python.org/zh-cn/3.14/c-api/dict.html#c.PyDict_GetItemWithError"
+]
+CAPI_PyDict_SetItem = [
+    "PyDict_SetItem()",
+    "https://docs.python.org/zh-cn/3.14/c-api/dict.html#c.PyDict_SetItem"
+]
+CAPI_PyObject_GetItem = [
+    "PyObject_GetItem()",
+    "https://docs.python.org/zh-cn/3.14/c-api/object.html#c.PyObject_GetItem"
+]
+CAPI_PyObject_SetItem = [
+    "PyObject_SetItem()",
+    "https://docs.python.org/zh-cn/3.14/c-api/object.html#c.PyObject_SetItem"
+]
+CAPI_PyNumber_Multiply = [
+    "PyNumber_Multiply()",
+    "https://docs.python.org/zh-cn/3.14/c-api/number.html#c.PyNumber_Multiply"
+]
