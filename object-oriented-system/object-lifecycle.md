@@ -3,7 +3,7 @@
 参照 @@lifecycle-events@@，Python 对象的生命周期事件关系可概括如下图所示。考虑一般情况，设堆类型 A 的元类为 type，父类是 object。
 
 ```mermaid
-graph LR
+graph TB
     tp_new -- 直接调用 --> tp_alloc
     tp_new --> tp_init
     tp_init --> reachable["可达对象"]
